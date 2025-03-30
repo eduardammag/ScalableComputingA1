@@ -7,19 +7,43 @@
 
 using namespace std;
 
+
+#include "dataframe.hpp"
+
+class Handler {
+public:
+    virtual DataFrame process(const DataFrame& input) = 0;
+    virtual ~Handler() {}
+};
+
+// 1. Tratador de Limpeza de Dados
 class DataCleaner : public Handler {
 public:
-    shared_ptr<DataFrame> process(shared_ptr<DataFrame> input) override;
+    DataFrame process(const DataFrame& input) override;
 };
 
-class EpidemiologicalStats : public Handler {
+// 2. Tratador de Detecção de Outliers
+class OutlierDetector : public Handler {
 public:
-    shared_ptr<DataFrame> process(shared_ptr<DataFrame> input) override;
+    DataFrame process(const DataFrame& input) override;
 };
 
-class OutbreakDetector : public Handler {
+// 3. Tratador de Agregação Temporal
+class TimeAggregator : public Handler {
 public:
-    shared_ptr<DataFrame> process(shared_ptr<DataFrame> input) override;
+    DataFrame process(const DataFrame& input) override;
 };
 
-#endif
+// 4. Tratador de Correlação Epidemiológica
+class EpidemiologyAnalyzer : public Handler {
+public:
+    DataFrame process(const DataFrame& input) override;
+};
+
+// 5. Tratador de Geração de Alertas
+class AlertGenerator : public Handler {
+public:
+    DataFrame process(const DataFrame& input) override;
+};
+
+#endif // HANDLERS_HPP

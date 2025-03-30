@@ -6,20 +6,38 @@
 
 using namespace std;
 
-shared_ptr<DataFrame> DataCleaner::process(shared_ptr<DataFrame> input) {
-    cout << "Limpando os dados..." << endl;
-    this_thread::sleep_for(chrono::seconds(2));
-    return input;
+// 1. DataCleaner - Remove nulos e duplicatas
+DataFrame DataCleaner::process(const DataFrame& input) {
+    DataFrame output = input;
+    output.removeNulls();
+    output.removeDuplicates();
+    return output;
 }
 
-shared_ptr<DataFrame> EpidemiologicalStats::process(shared_ptr<DataFrame> input) {
-    cout << "Calculando estatísticas epidemiológicas..." << endl;
-    this_thread::sleep_for(chrono::seconds(3));
-    return input;
+// 2. OutlierDetector - Detecta valores anômalos
+DataFrame OutlierDetector::process(const DataFrame& input) {
+    DataFrame output = input;
+    output.detectOutliers();
+    return output;
 }
 
-shared_ptr<DataFrame> OutbreakDetector::process(shared_ptr<DataFrame> input) {
-    cout << "Verificando aumento de casos suspeitos..." << endl;
-    this_thread::sleep_for(chrono::seconds(4));
-    return input;
+// 3. TimeAggregator - Agrega dados por tempo
+DataFrame TimeAggregator::process(const DataFrame& input) {
+    DataFrame output = input;
+    output.aggregateByTime("weekly");  // Suponha que esse método exista
+    return output;
+}
+
+// 4. EpidemiologyAnalyzer - Analisa padrões epidemiológicos
+DataFrame EpidemiologyAnalyzer::process(const DataFrame& input) {
+    DataFrame output = input;
+    output.analyzeCorrelations();  // Suponha que esse método exista
+    return output;
+}
+
+// 5. AlertGenerator - Gera alertas de surtos
+DataFrame AlertGenerator::process(const DataFrame& input) {
+    DataFrame output = input;
+    output.generateAlerts();
+    return output;
 }
