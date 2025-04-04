@@ -1,10 +1,10 @@
-#include "extrator.hpp"      // Declaração da classe Extrator
-#include <fstream>           // Para leitura de arquivos
-#include <sstream>           // Para manipulação de strings com stream
-#include <iostream>          // Para mensagens de erro e debug
-#include <sqlite3.h>         // Biblioteca SQLite
-#include <algorithm>         // Para funções utilitárias como rfind
-#include <cctype>            // Para funções com caracteres (não usada diretamente aqui)
+#include "extrator.hpp"      
+#include <fstream>           
+#include <sstream>           
+#include <iostream>          
+#include <sqlite3.h>        
+#include <algorithm>         
+#include <cctype>            
 
 using namespace std;
 

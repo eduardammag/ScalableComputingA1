@@ -7,7 +7,7 @@
 
 using namespace std; 
 
-class Extrator {  // Declaração da classe Extrator, que será usada para ler e processar arquivos de dados
+class Extrator { 
 public:
     // Função pública que será chamada para carregar um arquivo, detectando o tipo automaticamente
     DataFrame carregar(const string& caminhoArquivo);

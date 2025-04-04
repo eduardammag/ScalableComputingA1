@@ -41,7 +41,7 @@ int main() {
 
 
     
-     Extrator extrator;
+    Extrator extrator;
 
     vector<string> arquivos = {
         "hospital_mock.csv",
@@ -57,7 +57,7 @@ int main() {
         try {
             DataFrame df = extrator.carregar(arquivo);
             df.display(); // ou outro método de visualização que você tenha
-        } catch (const std::exception& e) {
+        } catch (const exception& e) {
             cerr << "Erro ao carregar " << arquivo << ": " << e.what() << endl;
         }
     }
