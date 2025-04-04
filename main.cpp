@@ -1,87 +1,41 @@
-#include "pipeline.hpp"
-#include "handlers.hpp"
-#include "triggers.hpp"
 #include "dataframe.hpp"
-#include "repository.hpp"
-#include <iostream>
-#include <memory>
-#include <thread>
-
-using namespace std;
-
 
 int main() {
+    // Define colunas: Nome, Idade, Nota, Curso, Email, Status
+    vector<string> colNames = {"Nome", "Idade", "Nota", "Curso", "Email", "Status"};
+    vector<ColumnType> colTypes = {
+        ColumnType::STRING,
+        ColumnType::INTEGER,
+        ColumnType::DOUBLE,
+        ColumnType::STRING,
+        ColumnType::STRING,
+        ColumnType::STRING
+    };
 
-       // Define colunas: Nome (string), Idade (int), Nota (double)
-        vector<string> colNames = {"Nome", "Idade", "Nota"};
-        vector<ColumnType> colTypes = {ColumnType::STRING, ColumnType::INTEGER, ColumnType::DOUBLE};
-    
-        // Cria o DataFrame
-        DataFrame df(colNames, colTypes);
-    
-        // Adiciona algumas linhas
-        df.addRow({"Alice", "22", "8.5"});
-        df.addRow({"Bob", "30", "7.0"});
-        df.addRow({"Carla", "25", "9.2"});
-        df.addRow({"Daniel", "NULL", "10.0"});   // Essa linha tem valor nulo
-        df.addRow({"Bob", "30", "7.0"});         // Essa linha é duplicada
-    
-        // Exibe o DataFrame inicial
-        cout << "=== DataFrame Original ===" << endl;
-        df.display();
-    
-        // Remove linhas com valores nulos
-        df.removeNulls();
-        cout << "\n=== Após Remoção de Nulos ===" << endl;
-        df.display();
-    
-        // Remove duplicatas
-        df.removeDuplicates();
-        cout << "\n=== Após Remoção de Duplicatas ===" << endl;
-        df.display();
-    
-        // Detecta outliers na coluna de índice 2 ("Nota")
-        cout << "\n=== Outliers em 'Nota' ===" << endl;
-        df.detectOutliers(2);
-    
-        // Ordena pela coluna "Idade"
-        df.sortByColumn("Idade", true);
-        cout << "\n=== DataFrame Ordenado por Idade (Ascendente) ===" << endl;
-        df.display();
-    
-        // Filtra onde Nome == "Bob"
-        DataFrame bobDF = df.filterByValue("Nome", "Bob");
-        cout << "\n=== Apenas linhas onde Nome == 'Bob' ===" << endl;
-        bobDF.display();
-    
-        // Carrega dados de um arquivo CSV (certifique-se de ter esse arquivo no mesmo diretório)
-        cout << "\n=== Carregando dados de 'dados.csv' ===" << endl;
-        DataFrame dfCSV(colNames, colTypes);
-        dfCSV.loadCSV("dados.csv");
-        dfCSV.display();
+    // Cria o DataFrame
+    DataFrame df(colNames, colTypes);
 
-    
+    // Adiciona linhas ao DataFrame
+    df.addRow({"Alice", "22", "8.5", "Engenharia", "alice@email.com", "Ativa"});
+    df.addRow({"Bob", "30", "7.0", "Matemática", "bob@email.com", "Inativa"});
+    df.addRow({"Carla", "25", "9.2", "Física", "carla@email.com", "Ativa"});
+    df.addRow({"Daniel", "NULL", "10.0", "Química", "", "Ativa"});
+    df.addRow({"Eva", "28", "NaN", "Computação", "eva@email.com", "Trancada"});
+    df.addRow({"Fábio", "27", "6.5", "História", "fabio@email.com", "Ativa"});
 
-    
-    // auto repo = make_shared<MemoryRepository>();
+    // Exibe o DataFrame original
+    cout << "=== DataFrame Original ===" << endl;
+    df.display();
 
-    // auto cleaner = make_shared<DataCleaner>();
-    // auto stats = make_shared<EpidemiologicalStats>();
-    // auto outbreakDetector = make_shared<OutbreakDetector>();
+    // Remove a 2ª linha (índice 1, ou seja, Bob)
+    df.removeRow(1);
 
-    // auto pipeline = make_shared<Pipeline>(repo);
-    // pipeline->addHandler(cleaner);
-    // pipeline->addHandler(stats);
-    // pipeline->addHandler(outbreakDetector);
+    // Remove a coluna "Email"
+    df.removeColumn("Email");
 
-    // auto timerTrigger = make_shared<TimerTrigger>(pipeline, 10);
-
-    // // Rodar trigger em uma thread separada
-    // thread triggerThread(&TimerTrigger::start, timerTrigger);
-    // triggerThread.detach();
-
-    // cout << "Monitoramento iniciado! Pressione Ctrl+C para sair." << endl;
-    // this_thread::sleep_for(chrono::minutes(2));
+    // Exibe o DataFrame após remoções
+    cout << "\n=== DataFrame Após Remoções ===" << endl;
+    df.display();
 
     return 0;
 }

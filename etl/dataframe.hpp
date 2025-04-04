@@ -1,88 +1,54 @@
-// Impede que o arquivo seja incluído mais de uma vez durante a compilação
-#ifndef DATAFRAME_HPP
-#define DATAFRAME_HPP
+#ifndef DATAFRAME_HPP              
+#define DATAFRAME_HPP              
+#include <iostream>                
+#include <vector>                  
+#include <string>                  
+#include <unordered_set>          
 
-#include <iostream>             // Para entrada e saída (cout, cin)
-#include <vector>               // Para usar vetores dinâmicos
-#include <string>               // Para manipular strings
-#include <unordered_set>        // Para conjuntos sem ordenação (útil para eliminar duplicatas)
-#include <unordered_map>        // Para mapas rápidos, se necessário
-#include <algorithm>            // Para funções utilitárias como sort, find, etc.
-#include <cmath>                // Para funções matemáticas (ex: std::abs, std::pow)
-#include <fstream>              // Para leitura de arquivos (ex: CSV)
-#include <sstream>              // Para manipulação de strings como fluxos (útil para parse)
+using namespace std;              
 
-using namespace std;            
-
-// Enum class que define os tipos possíveis de dados das colunas
+// Enum para representar os tipos de dados das colunas
 enum class ColumnType {
-    INTEGER,    
-    DOUBLE,     
-    STRING      
+    INTEGER,                     
+    DOUBLE,                       
+    STRING                       
 };
-
 
 class DataFrame {
 private:
 
-    // Lista com os nomes das colunas
-    vector<string> columnNames;
+    // Vetor com os nomes das colunas
+    vector<string> columnNames;            
     
-    // Lista com os tipos das colunas, na mesma ordem
-    vector<ColumnType> columnTypes;   
+    // Vetor com os tipos de dados de cada coluna
+    vector<ColumnType> columnTypes; 
+    
+    // Matriz com os dados (armazenados como strings) ?????????
+    vector<vector<string>> data;              
 
-    // ======== Funções auxiliares privadas =========
-
-    // Verifica se um valor é considerado nulo (ex: "NULL" ou vazio)
-    bool isNull(const string& value) const;
-
-    // Verifica se uma linha é duplicada comparando com as já existentes
-    bool isDuplicateRow(const vector<string>& row) const;
-
-    // Verifica se uma string representa um número (usado para validação)
-    bool isNumber(const string& s) const;
-
-    // Converte número double para string (com precisão padrão)
-    string toString(double d) const;
-
-    // Converte inteiro para string
-    string toString(int i) const;
+    // Função auxiliar para verificar se um valor é considerado nulo
+    bool isNull(const string& val) const {
+        return val.empty() || val == "null" || val == "NULL" || val == "NaN";
+    }
 
 public:
-    // ========= Construtor =========
-
-    // Cria o DataFrame com os nomes e tipos das colunas definidos
+    // Construtor que recebe nomes e tipos das colunas
     DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes);
 
-    // ========= Manipulação de linhas =========
-
-    // Adiciona uma nova linha ao DataFrame (valores como strings)
+    // Adiciona uma linha de dados ao DataFrame
     void addRow(const vector<string>& row);
 
-    // Remove uma linha com base no índice (0-based)
+    // Remove a linha no índice especificado
     void removeRow(int index);
 
-    // ========= Manipulação de colunas =========
-
-    // Adiciona uma nova coluna com valores e tipo correspondente
+    // Adiciona uma nova coluna com nome, tipo e valores
     void addColumn(const string& name, ColumnType type, const vector<string>& values);
 
     // Remove uma coluna com base no nome
     void removeColumn(const string& name);
 
-    // ========= Exibição =========
-
-    // Mostra o conteúdo do DataFrame no terminal
+    // Exibe o DataFrame no console
     void display() const;
-
-    // ========= Limpeza =========
-
-    // Remove todas as linhas que contenham valores nulos
-    void removeNulls();
-
-    // Remove todas as linhas duplicadas (com valores idênticos)
-    void removeDuplicates();
 };
 
-// Fim da proteção contra múltiplas inclusões
-#endif // DATAFRAME_HPP
+#endif 
