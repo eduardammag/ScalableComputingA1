@@ -5,17 +5,19 @@
 #include <vector>
 #include "dataframe.hpp"
 
+using namespace std; 
+
 class Extrator {
 public:
-    DataFrame carregar(const std::string& caminhoArquivo);
+    DataFrame carregar(const string& caminhoArquivo);
 
 private:
-    std::string obterExtensao(const std::string& nomeArquivo);
+    string obterExtensao(const string& nomeArquivo);
 
-    DataFrame carregarCSVouTXT(const std::string& caminho, char separador);
-    DataFrame carregarSQLite(const std::string& caminho);
+    DataFrame carregarCSVouTXT(const string& caminho, char separador);
+    DataFrame carregarSQLite(const string& caminho);
 
-    std::vector<ColumnType> inferirTipos(const std::vector<std::string>& primeiraLinha);
+    vector<ColumnType> inferirTipos(const vector<string>& primeiraLinha);
 };
 
 #endif
