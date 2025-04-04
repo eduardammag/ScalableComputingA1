@@ -59,43 +59,4 @@ void DataFrame::removeDuplicates() {
         }), data.end());
 }
 
-// Detecta outliers na 2ª coluna (considerando valores numéricos)
-void DataFrame::detectOutliers() {
-    if (data.empty()) return;
 
-    vector<double> values;
-    for (const auto& row : data) {
-        values.push_back(stringToDouble(row[1]));  // Usando a função personalizada
-    }
-
-    double sum = 0.0, mean = 0.0;
-    for (double v : values) sum += v;
-    mean = sum / values.size();
-
-    double variance = 0.0;
-    for (double v : values) variance += (v - mean) * (v - mean);
-    variance /= values.size();
-    double stddev = sqrt(variance);
-
-    // Remove outliers (definição: valores acima de 3 desvios-padrão)
-    data.erase(remove_if(data.begin(), data.end(),
-        [mean, stddev](const vector<string>& row) {
-            double val = stringToDouble(row[1]);
-            return val > mean + 3 * stddev || val < mean - 3 * stddev;
-        }), data.end());
-}
-
-// Agrega dados por período (exemplo simplificado)
-void DataFrame::aggregateByTime(const string& period) {
-    cout << "Agregando dados por: " << period << endl;
-}
-
-// Analisa padrões epidemiológicos (placeholder)
-void DataFrame::analyzeCorrelations() {
-    cout << "Analisando padrões epidemiológicos..." << endl;
-}
-
-// Gera alertas para surtos de doenças
-void DataFrame::generateAlerts() {
-    cout << "Gerando alertas para possíveis surtos!" << endl;
-}
