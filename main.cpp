@@ -1,4 +1,6 @@
 #include "dataframe.hpp"
+#include "extrator.hpp"
+#include <iostream>
 
 int main() {
     // Define colunas: Nome, Idade, Nota, Curso, Email, Status
@@ -36,6 +38,29 @@ int main() {
     // Exibe o DataFrame após remoções
     cout << "\n=== DataFrame Após Remoções ===" << endl;
     df.display();
+
+
+    
+     Extrator extrator;
+
+    vector<string> arquivos = {
+        "hospital_mock.csv",
+        "mock_data.csv",
+        "oms_mock.txt",
+        "mock_data.db"
+    };
+
+    for (const auto& arquivo : arquivos) {
+        cout << "\n====================" << endl;
+        cout << "Carregando: " << arquivo << endl;
+
+        try {
+            DataFrame df = extrator.carregar(arquivo);
+            df.display(); // ou outro método de visualização que você tenha
+        } catch (const std::exception& e) {
+            cerr << "Erro ao carregar " << arquivo << ": " << e.what() << endl;
+        }
+    }
 
     return 0;
 }
