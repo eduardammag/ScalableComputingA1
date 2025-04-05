@@ -29,13 +29,16 @@ cep_regioes = [int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 6)]
 
 
 
-def oms_generate_mock(rows=100, output_file="oms_mock.txt"):
+def oms_generate_mock(rows=random.randint(300, 500), output_file="oms_mock.txt"):
     """Gera um arquivo .txt com dados fictícios no formato da tabela da OMS."""
     headers = ["Nº óbitos", "População", "CEP da ilha", "Nº recuperados", "Nº de vacinados", "Data"]
 
 
-    with open(output_file, mode="w") as file:
-        file.write("\t".join(headers) + "\n")  # Escreve o cabeçalho com tabulação
+    arquivo_existe = os.path.exists(output_file)
+
+    with open(output_file, mode="a") as file:  # modo append ("a") para adicionar
+        if not arquivo_existe:
+            file.write("\t".join(headers) + "\n")  # só escreve cabeçalho se for um novo arquivo
 
         for _ in range(rows):
             num_obitos = random.randint(0, 1000)  
@@ -49,39 +52,32 @@ def oms_generate_mock(rows=100, output_file="oms_mock.txt"):
 
     print(f"Arquivo TXT gerado: {output_file}")
 
-oms_generate_mock(100)
+oms_generate_mock()
 
 
 ############################################### HOSPITAL-CSV ##############################################################
-
 def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
-    headers = ["Data", "Internado", "Idade", "Sexo", "CEP", "Sintoma1", "Sintoma2", "Sintoma3", "Sintoma4"]
+    headers = ["ID_Hospital", "Data", "Internado", "Idade", "Sexo", "CEP", "Sintoma1", "Sintoma2", "Sintoma3", "Sintoma4"]
     arquivo_existe = os.path.exists(output_file)
 
     with open(output_file, mode="a", newline="") as file:
         writer = csv.writer(file)
         
         if not arquivo_existe:
-            writer.writerow(headers)  # Escreve o cabeçalho só se for o primeiro
+            writer.writerow(headers)  # Escreve o cabeçalho só uma vez
 
-        
         for _ in range(rows):
-
-            random_days = random.randint(0, 365)
-            data = (datetime.today() - timedelta(days=random_days)).strftime("%d-%m-%Y")
-
+            id_hospital = random.randint(1, 5)  # ID de 1 a 5
+            data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")
             internado = random.choice([True, False])
             idade = random.randint(0, 100)
-            sexo = random.choice([0, 1])  # 1 = Feminino, 0 = Masculino
-            cep = random.choice(cep_regioes) # Escolhe aleatoriamente uma das 5 regiões, já que temos dados de uma só ilha em cada tabela
-            sintoma1 = random.randint(0, 1)
-            sintoma2 = random.randint(0, 1)
-            sintoma3 = random.randint(0, 1)
-            sintoma4 = random.randint(0, 1)
+            sexo = random.choice([0, 1]) # 1 = Feminino, 0 = Masculino
+            cep = random.choice(cep_regioes)  # Escolhe aleatoriamente uma das 5 regiões, já que temos dados de uma só ilha em cada tabela
+            sintomas = [random.randint(0, 1) for _ in range(4)]
             
-            writer.writerow([data, internado, idade, sexo, cep, sintoma1, sintoma2, sintoma3, sintoma4])
-    
-    print(f"Arquivo CSV gerado: {output_file}")
+            writer.writerow([id_hospital, data, internado, idade, sexo, cep] + sintomas)
+
+    print(f"Arquivo CSV atualizado: {output_file}")
 
 def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas=150):
     for i in range(1, qtde_arquivos + 1):
@@ -97,9 +93,9 @@ gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=50, max_linhas=200
 
 ############################################### SECRETARIA-SQlite ##############################################################
 
-# Remove o banco antigo, se existir
-if os.path.exists("secretary_data.db"):
-    os.remove("secretary_data.db")
+# # Remove o banco antigo, se existir
+# if os.path.exists("secretary_data.db"):
+#     os.remove("secretary_data.db")
 
 def create_database(db_name="secretary_data.db"):
     """Cria o banco de dados e a tabela se não existir."""
@@ -119,7 +115,7 @@ def create_database(db_name="secretary_data.db"):
     conn.commit()
     conn.close()
 
-def secretary_generate_mock(rows=100, db_name="secretary_data.db"):
+def secretary_generate_mock(rows=random.randint(50, 100), db_name="secretary_data.db"):
     """Gera dados fictícios e insere no banco de dados."""
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -142,7 +138,7 @@ def secretary_generate_mock(rows=100, db_name="secretary_data.db"):
     print(f"Banco de dados '{db_name}' gerado com {rows} registros!")
 
 create_database()
-secretary_generate_mock(100)
+secretary_generate_mock()
 
 
 # Para verificação
