@@ -1,7 +1,7 @@
 #ifndef HANDLERS_HPP
 #define HANDLERS_HPP
 
-#include "pipeline.hpp"
+// #include "pipeline.hpp"
 #include <thread>
 #include <chrono>
 
@@ -16,6 +16,10 @@ public:
     virtual ~Handler() {}
 };
 
+DataFrame meanAlert(const DataFrame& , const string& ); 
+vector<int> stringToInt(const vector<string>&);
+DataFrame groupRegions(const DataFrame& , const string& , const string& ) ;
+/*
 // 1. Tratador de Limpeza de Dados
 class DataCleaner : public Handler {
 public:
@@ -45,5 +49,7 @@ class AlertGenerator : public Handler {
 public:
     DataFrame process(const DataFrame& input) override;
 };
+
+*/
 
 #endif // HANDLERS_HPP
