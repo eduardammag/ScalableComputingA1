@@ -56,10 +56,14 @@ oms_generate_mock(100)
 
 def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
     headers = ["Data", "Internado", "Idade", "Sexo", "CEP", "Sintoma1", "Sintoma2", "Sintoma3", "Sintoma4"]
-    
-    with open(output_file, mode="w", newline="") as file:
+    arquivo_existe = os.path.exists(output_file)
+
+    with open(output_file, mode="a", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(headers)
+        
+        if not arquivo_existe:
+            writer.writerow(headers)  # Escreve o cabeçalho só se for o primeiro
+
         
         for _ in range(rows):
 
@@ -79,7 +83,17 @@ def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
     
     print(f"Arquivo CSV gerado: {output_file}")
 
-hospital_generate_mock(100)
+def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas=150):
+    for i in range(1, qtde_arquivos + 1):
+        num_linhas = random.randint(min_linhas, max_linhas)
+        nome_arquivo = f"hospital_mock_{i}.csv"
+        hospital_generate_mock(rows=num_linhas, output_file=nome_arquivo)
+
+    print(f"\n{qtde_arquivos} arquivos hospitalares gerados com números de linhas aleatórios entre {min_linhas} e {max_linhas}.")
+
+
+# hospital_generate_mock(100)
+gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=50, max_linhas=200)
 
 ############################################### SECRETARIA-SQlite ##############################################################
 
