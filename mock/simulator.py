@@ -2,6 +2,55 @@ import csv
 import sqlite3
 import random
 from datetime import datetime, timedelta
+import os
+
+
+
+# 20 ilhas, 5 regiões em cada, totalizando 100 regiões
+
+# cep ilha - 2 dígitos (sortear de 1200 a 1299) 
+# cep região - 5 dígitos, sendo os 2 primeiros o da ilha
+
+# OMS dá dados por ilha, ou seja, o cep tem 2 digítos
+# SS dá dados por região de cada ilha, ou seja, o cada tabela o cep terá 5 dígitos sendo os 2 primeiro iguais na mesma tabela
+# O hospital segue o cep da mesma forma da SS
+
+cep_ilhas = list(range(11, 31))  # 11 até 30, totalizando 20 ilhas
+
+
+# Escolhe uma ilha aleatória para gerar os dados das regiões
+cep_ilha_escolhida = random.choice(cep_ilhas)
+
+# Gera CEPs de regiões da ilha escolhida: 5 regiões com CEPs 5 dígitos, do tipo 12001, 12002...
+cep_regioes = [int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 6)] 
+
+
+############################################### OMS-CSV ##############################################################
+
+
+
+def oms_generate_mock(rows=100, output_file="oms_mock.txt"):
+    """Gera um arquivo .txt com dados fictícios no formato da tabela da OMS."""
+    headers = ["Nº óbitos", "População", "CEP da ilha", "Nº recuperados", "Nº de vacinados", "Data"]
+
+
+    with open(output_file, mode="w") as file:
+        file.write("\t".join(headers) + "\n")  # Escreve o cabeçalho com tabulação
+
+        for _ in range(rows):
+            num_obitos = random.randint(0, 1000)  
+            populacao = random.randint(1000, 1000000) 
+            cep_ilha = random.choice(cep_ilhas)  # Escolhe aleatoriamente um dos 20 CEPs
+            num_recuperados = random.randint(0, 5000)  
+            num_vacinados = random.randint(0, populacao)  
+            data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")  
+
+            file.write(f"{num_obitos}\t{populacao}\t{cep_ilha}\t{num_recuperados}\t{num_vacinados}\t{data}\n")
+
+    print(f"Arquivo TXT gerado: {output_file}")
+
+oms_generate_mock(100)
+
 
 ############################################### HOSPITAL-CSV ##############################################################
 
@@ -19,8 +68,8 @@ def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
 
             internado = random.choice([True, False])
             idade = random.randint(0, 100)
-            sexo = random.choice([0, 1])  # 0 = Feminino, 1 = Masculino
-            cep = random.randint(10000000, 99999999)
+            sexo = random.choice([0, 1])  # 1 = Feminino, 0 = Masculino
+            cep = random.choice(cep_regioes) # Escolhe aleatoriamente uma das 5 regiões, já que temos dados de uma só ilha em cada tabela
             sintoma1 = random.randint(0, 1)
             sintoma2 = random.randint(0, 1)
             sintoma3 = random.randint(0, 1)
@@ -32,8 +81,11 @@ def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
 
 hospital_generate_mock(100)
 
-############################################### SECRETARIA-CSV ##############################################################
+############################################### SECRETARIA-SQlite ##############################################################
 
+# Remove o banco antigo, se existir
+if os.path.exists("secretary_data.db"):
+    os.remove("secretary_data.db")
 
 def create_database(db_name="secretary_data.db"):
     """Cria o banco de dados e a tabela se não existir."""
@@ -61,7 +113,7 @@ def secretary_generate_mock(rows=100, db_name="secretary_data.db"):
     for _ in range(rows):
         diagnostico = random.choice([0, 1])
         vacinado = random.choice([0, 1])
-        cep = random.randint(10000000, 99999999)
+        cep = random.choice(cep_regioes)
         escolaridade = random.randint(0, 5)
         populacao = random.randint(1000, 1000000)
         data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")
@@ -122,27 +174,5 @@ secretary_generate_mock(100)
 # 1|51
 
 
-############################################### OMS-CSV ##############################################################
 
 
-
-def oms_generate_mock(rows=100, output_file="oms_mock.txt"):
-    """Gera um arquivo .txt com dados fictícios no formato da tabela da OMS."""
-    headers = ["Nº óbitos", "População", "CEP", "Nº recuperados", "Nº de vacinados", "Data"]
-
-    with open(output_file, mode="w") as file:
-        file.write("\t".join(headers) + "\n")  # Escreve o cabeçalho com tabulação
-
-        for _ in range(rows):
-            num_obitos = random.randint(0, 1000)  
-            populacao = random.randint(1000, 1000000) 
-            cep = random.randint(10000000, 99999999)  
-            num_recuperados = random.randint(0, 5000)  
-            num_vacinados = random.randint(0, populacao)  
-            data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")  
-
-            file.write(f"{num_obitos}\t{populacao}\t{cep}\t{num_recuperados}\t{num_vacinados}\t{data}\n")
-
-    print(f"Arquivo TXT gerado: {output_file}")
-
-oms_generate_mock(100)
