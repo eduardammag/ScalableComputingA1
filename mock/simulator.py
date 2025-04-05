@@ -54,6 +54,8 @@ def oms_generate_mock(rows=random.randint(300, 500), output_file="oms_mock.txt")
 
 oms_generate_mock()
 
+#teste pequeno
+# oms_generate_mock(50)
 
 ############################################### HOSPITAL-CSV ##############################################################
 def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
@@ -89,7 +91,10 @@ def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas
 
 
 # hospital_generate_mock(100)
-gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=50, max_linhas=200)
+gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=150, max_linhas=200)
+
+#teste pequeno
+#gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=5, max_linhas=20)
 
 ############################################### SECRETARIA-SQlite ##############################################################
 
@@ -139,6 +144,9 @@ def secretary_generate_mock(rows=random.randint(50, 100), db_name="secretary_dat
 
 create_database()
 secretary_generate_mock()
+
+#teste pequeno
+#secretary_generate_mock(50)
 
 
 # Para verificação

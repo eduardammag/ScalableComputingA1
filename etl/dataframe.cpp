@@ -1,4 +1,5 @@
 #include "dataframe.hpp" // Inclui o cabeçalho com a definição da classe DataFrame
+#include <algorithm>
 
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
