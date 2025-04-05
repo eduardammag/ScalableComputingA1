@@ -1,5 +1,6 @@
 #include "etl/dataframe.hpp"  // Corrigido com caminho relativo
 #include "etl/extrator.hpp"
+#include "pipeline/pipeline.hpp"
 #include <iostream>
 
 
@@ -97,6 +98,9 @@ int main() {
     // return 0;
 
 //////////////////////////////////////////////////////////teste extração - produtor consummidor/////////////////////////////////////////////////////////////////////
+
+// g++ -std=c++17 -I./etl -o pipeline_exec main.cpp pipeline/pipeline.cpp etl/extrator.cpp etl/dataframe.cpp -lsqlite3
+// ./pipeline_exec
 
     executarPipeline();
     return 0;

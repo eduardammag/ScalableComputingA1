@@ -29,6 +29,5 @@ private:
 
 
 
-void executarPipeline();
 
 #endif  
