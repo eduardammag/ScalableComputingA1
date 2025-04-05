@@ -12,6 +12,7 @@
 
 using namespace std;
 
+
 // Fila compartilhada entre produtores e consumidores
 queue<string> filaArquivos;
 mutex filaMutex;
@@ -74,7 +75,15 @@ void consumidor(int id) {
 }
 
 // Função que orquestra o pipeline
-void executarPipeline() {
+void executarPipeline(int numConsumidores) {
+    // Reinicia estados globais (caso a função seja chamada várias vezes)
+    encerrado = false;
+    {
+        lock_guard<mutex> lock(filaMutex);
+        queue<string> empty;
+        swap(filaArquivos, empty);
+    }
+
     vector<string> arquivos = {
         "oms_mock.txt",
         "hospital_mock_1.csv",
@@ -85,9 +94,7 @@ void executarPipeline() {
 
     thread prod(produtor, arquivos);
 
-    const int numConsumidores = 3;
     vector<thread> consumidores;
-
     for (int i = 0; i < numConsumidores; ++i) {
         consumidores.emplace_back(consumidor, i + 1);
     }
@@ -97,5 +104,5 @@ void executarPipeline() {
         t.join();
     }
 
-    cout << "[Pipeline] Execução completa.\n";
+    cout << "[Pipeline] Execução completa com " << numConsumidores << " consumidor(es).\n";
 }

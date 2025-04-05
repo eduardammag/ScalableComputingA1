@@ -2,6 +2,7 @@
 #include "etl/extrator.hpp"
 #include "pipeline/pipeline.hpp"
 #include <iostream>
+#include <chrono>
 
 
 
@@ -102,7 +103,17 @@ int main() {
 // g++ -std=c++17 -I./etl -o pipeline_exec main.cpp pipeline/pipeline.cpp etl/extrator.cpp etl/dataframe.cpp -lsqlite3
 // ./pipeline_exec
 
-    executarPipeline();
+    for (int n = 1; n <= 8; n *= 2) {
+        std::cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+        auto inicio = std::chrono::high_resolution_clock::now();
+
+        executarPipeline(n);  // Pipeline com n consumidores
+
+        auto fim = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duracao = fim - inicio;
+
+        std::cout << "Tempo: " << duracao.count() << " segundos.\n";
+    }
     return 0;
 
 
