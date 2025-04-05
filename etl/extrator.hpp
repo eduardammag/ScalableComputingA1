@@ -5,6 +5,7 @@
 #include <vector>     
 #include "dataframe.hpp" // Inclui o cabeçalho do DataFrame, que é uma estrutura para armazenar os dados carregados
 
+
 using namespace std; 
 
 class Extrator { 
@@ -25,5 +26,9 @@ private:
     // Função privada para inferir os tipos de dados das colunas a partir da primeira linha (ex: int, double, string)
     vector<ColumnType> inferirTipos(const vector<string>& primeiraLinha);
 };
+
+
+
+void executarPipeline();
 
 #endif  

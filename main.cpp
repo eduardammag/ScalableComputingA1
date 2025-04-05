@@ -4,6 +4,7 @@
 
 
 
+
 int main() {
     // // Define colunas: Nome, Idade, Nota, Curso, Email, Status
     // vector<string> colNames = {"Nome", "Idade", "Nota", "Curso", "Email", "Status"};
@@ -64,34 +65,41 @@ int main() {
     //     }
     // }
 
-
+////////////////////////////////////////////////Teste funções de extração e df//////////////////////////////////////////////////////////////////////
 // O seguinte prompt compila a main no arquivo extrator_test
  // g++ -std=c++17 -I./etl -o extrator_test main.cpp etl/extrator.cpp etl/dataframe.cpp -lsqlite3
 
  //Para executar o binário compilado ussamos: ./extrator_test
 
-    try {
-        Extrator extrator;
+    // try {
+    //     Extrator extrator;
 
-        // Teste com um arquivo .txt (como o gerado para a OMS)
-        DataFrame df_txt = extrator.carregar("oms_mock.txt");
-        std::cout << "Arquivo TXT carregado com sucesso:\n";
-        df_txt.display(); 
+    //     // Teste com um arquivo .txt (como o gerado para a OMS)
+    //     DataFrame df_txt = extrator.carregar("oms_mock.txt");
+    //     std::cout << "Arquivo TXT carregado com sucesso:\n";
+    //     df_txt.display(); 
 
-        // Teste com um arquivo .csv (como um dos hospitais)
-        DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
-        std::cout << "\nArquivo CSV carregado com sucesso:\n";
-        df_csv.display();
+    //     // Teste com um arquivo .csv (como um dos hospitais)
+    //     DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
+    //     std::cout << "\nArquivo CSV carregado com sucesso:\n";
+    //     df_csv.display();
 
-        // Teste com banco de dados SQLite
-        DataFrame df_db = extrator.carregar("secretary_data.db");
-        std::cout << "\nBanco de dados SQLite carregado com sucesso:\n";
-        df_db.display();
+    //     // Teste com banco de dados SQLite
+    //     DataFrame df_db = extrator.carregar("secretary_data.db");
+    //     std::cout << "\nBanco de dados SQLite carregado com sucesso:\n";
+    //     df_db.display();
 
-    } catch (const std::exception& e) {
-        std::cerr << "Erro: " << e.what() << std::endl;
-    }
+    // } catch (const std::exception& e) {
+    //     std::cerr << "Erro: " << e.what() << std::endl;
+    // }
 
 
+    // return 0;
+
+//////////////////////////////////////////////////////////teste extração - produtor consummidor/////////////////////////////////////////////////////////////////////
+
+    executarPipeline();
     return 0;
+
+
 }
