@@ -2,23 +2,35 @@
 #define DASHBOARD_HPP
 
 #include <string>
-#include <unordered_map>
-#include <mutex>
+#include <map>
+#include <array>
 
 using namespace std;
 
-// Dados agregados por região
-struct DadosHospital {
-    int internados = 0;
-    int totalPacientes = 0;
+// Estrutura que armazena estatísticas para cada CEP ou ilha
+struct Estatisticas {
+    // Dados da fonte hospital
+    int totalInternados = 0;
+    int somaIdadesInternados = 0;
+    array<int, 4> totalSintomas = {0, 0, 0, 0};
+    int totalRegistrosHospital = 0;
+
+    // Dados da secretaria de saúde
+    int totalPositivos = 0;
+    int totalVacinados = 0;
+    int totalRegistrosSecretaria = 0;
+
+    // Dados da OMS
+    int totalObitos = 0;
+    int totalRecuperados = 0;
+    int totalVacinadosOMS = 0;
+    int populacaoIlha = 0;
+    int totalRegistrosOMS = 0;
 };
 
-// Mapa compartilhado e mutex
-extern unordered_map<string, DadosHospital> dadosPorRegiao;
-extern mutex mtx;
-
-// Funções principais
-void processarCSV(const string& caminho);
+// Função que inicia o monitoramento de uma pasta para arquivos .csv novos
 void iniciarMonitoramento(const string& pasta);
 
-#endif
+
+void processarArquivos(const string& pastaDatabase);
+#endif // DASHBOARD_HPP

@@ -5,9 +5,8 @@
 #include <chrono>
 #include "etl/dashboard.hpp"
 
-    iniciarMonitoramento("dados/");
-    return 0;
 
+using namespace std;
 
 int main() {
     // // Define colunas: Nome, Idade, Nota, Curso, Email, Status
@@ -80,21 +79,21 @@ int main() {
 
     //     // Teste com um arquivo .txt (como o gerado para a OMS)
     //     DataFrame df_txt = extrator.carregar("oms_mock.txt");
-    //     std::cout << "Arquivo TXT carregado com sucesso:\n";
+    //     cout << "Arquivo TXT carregado com sucesso:\n";
     //     df_txt.display(); 
 
     //     // Teste com um arquivo .csv (como um dos hospitais)
     //     DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
-    //     std::cout << "\nArquivo CSV carregado com sucesso:\n";
+    //     cout << "\nArquivo CSV carregado com sucesso:\n";
     //     df_csv.display();
 
     //     // Teste com banco de dados SQLite
     //     DataFrame df_db = extrator.carregar("secretary_data.db");
-    //     std::cout << "\nBanco de dados SQLite carregado com sucesso:\n";
+    //     cout << "\nBanco de dados SQLite carregado com sucesso:\n";
     //     df_db.display();
 
-    // } catch (const std::exception& e) {
-    //     std::cerr << "Erro: " << e.what() << std::endl;
+    // } catch (const exception& e) {
+    //     cerr << "Erro: " << e.what() << endl;
     // }
 
 
@@ -105,24 +104,28 @@ int main() {
 // g++ -std=c++17 -I./etl -o pipeline_exec main.cpp pipeline/pipeline.cpp etl/extrator.cpp etl/dataframe.cpp -lsqlite3
 // ./pipeline_exec
 
-    for (int n = 1; n <= 8; n *= 2) {
-        std::cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
-        auto inicio = std::chrono::high_resolution_clock::now();
 
-        executarPipeline(n);  // Pipeline com n consumidores
 
-        auto fim = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duracao = fim - inicio;
+    // for (int n = 1; n <= 8; n *= 2) {
+    //     cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+    //     auto inicio = chrono::high_resolution_clock::now();
 
-        std::cout << "Tempo: " << duracao.count() << " segundos.\n";
-    }
+    //     executarPipeline(n);  // Pipeline com n consumidores
+
+    //     auto fim = chrono::high_resolution_clock::now();
+    //     chrono::duration<double> duracao = fim - inicio;
+
+    //     cout << "Tempo: " << duracao.count() << " segundos.\n";
+    // }
+    // return 0;
+
+
+
+    processarArquivos("database");
     return 0;
+    
 
 
-
-    //Dashboard
-    iniciarMonitoramento("dados/");
-    return 0;
 
 
 }
