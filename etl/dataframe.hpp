@@ -61,6 +61,10 @@ public:
 
     // retorna a quantidade de linhas do DataFrame
     int size() const ;
+
+    // Retorna os nomes das colunas
+    const std::vector<std::string>& getColumnNames() const;
+
 };
 
 #endif 

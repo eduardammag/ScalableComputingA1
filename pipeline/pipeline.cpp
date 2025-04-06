@@ -1,6 +1,7 @@
 // pipeline.cpp
 #include "pipeline.hpp"
 #include "../etl/extrator.hpp"
+#include "../etl/loader.hpp"
 
 #include <iostream>
 #include <queue>
@@ -66,6 +67,13 @@ void consumidor(int id) {
             DataFrame df = extrator.carregar(arquivo);
             cout << "[Consumidor " << id << "] Processando: " << arquivo << endl;
             df.display();
+            
+            //usar no consumidor do handler quando estiver pronto. Aqui é só um teste do loader.
+            string nomeBase = arquivo.substr(0, arquivo.find_last_of('.'));
+            string saidaCsv = "database/saida_" + to_string(id) + "_" + nomeBase + ".csv";
+            save_as_csv(df, saidaCsv);
+            cout << "[Consumidor " << id << "] Arquivo salvo como: " << saidaCsv << endl;
+
         } catch (const exception& e) {
             cerr << "[Erro Consumidor " << id << "] ao processar " << arquivo << ": " << e.what() << endl;
         }
