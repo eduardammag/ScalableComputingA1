@@ -3,8 +3,10 @@
 #include "pipeline/pipeline.hpp"
 #include <iostream>
 #include <chrono>
+#include "etl/dashboard.hpp"
 
-
+    iniciarMonitoramento("dados/");
+    return 0;
 
 
 int main() {
@@ -114,6 +116,12 @@ int main() {
 
         std::cout << "Tempo: " << duracao.count() << " segundos.\n";
     }
+    return 0;
+
+
+
+    //Dashboard
+    iniciarMonitoramento("dados/");
     return 0;
 
 
