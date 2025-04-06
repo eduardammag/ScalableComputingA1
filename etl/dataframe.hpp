@@ -50,7 +50,17 @@ public:
     // Exibe o DataFrame no console
     void display() const;
 
-    tuple<vector<string>, ColumnType> getColumn(const string& name) const;
+    // índice de uma coluna existente
+    size_t colIdx(const string& ) const;
+
+    // retorna linha desejada
+    const vector<string>& getRow(size_t index) const;
+
+    // retorna o tipo da coluna
+    ColumnType typeCol(size_t) const;
+
+    // retorna a quantidade de linhas do DataFrame
+    int size() const ;
 };
 
 #endif 
