@@ -185,3 +185,8 @@ int DataFrame::size() const
 {
     return data.size();
 }
+
+// Implementação do método getColumnNames
+const std::vector<std::string>& DataFrame::getColumnNames() const {
+    return columnNames;
+}
