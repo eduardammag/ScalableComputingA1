@@ -2,11 +2,6 @@
 #include <algorithm>
 #include <tuple> 
 
-// Construtor padrão
-// DataFrame::DataFrame() {
-    // Não faz nada — inicializa tudo vazio
-// }
-
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
     : columnNames(colNames), columnTypes(colTypes) 
@@ -194,4 +189,14 @@ int DataFrame::size() const
 // Implementação do método getColumnNames
 const std::vector<std::string>& DataFrame::getColumnNames() const {
     return columnNames;
+}
+
+// Retorna true se o DataFrame não tiver nenhuma linha
+bool DataFrame::empty() const {
+    return data.empty();
+}
+
+// Retorna o número de colunas no DataFrame
+int DataFrame::numCols() const {
+    return columnNames.size();
 }

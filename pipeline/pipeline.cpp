@@ -81,7 +81,13 @@ void consumidorExtrator(int id) {
             // extrai os arquivos 
             DataFrame df = extrator.carregar(arquivo);
             cout << "[Consumidor " << id << "] Processando: " << arquivo << endl;
-            // df.display();
+            if (df.empty()) {
+                cerr << "[Consumidor " << id << "] DataFrame VAZIO após extração de " << arquivo << endl;
+            } else {
+                cout << "[Consumidor " << id << "] DataFrame carregado com " << df.size() << " linhas e " << df.numCols() << " colunas.\n";
+                df.display();
+            }
+
 
             //e joga na fila para os tratadores
             {
@@ -90,12 +96,6 @@ void consumidorExtrator(int id) {
             }
             // avisa os tratadores
             extTratcondVar.notify_one();
-            
-            //usar no consumidor do handler quando estiver pronto. Aqui é só um teste do loader.
-            string nomeBase = arquivo.substr(0, arquivo.find_last_of('.'));
-            string saidaCsv = "database/saida_" + to_string(id) + "_" + nomeBase + ".csv";
-            save_as_csv(df, saidaCsv);
-            cout << "[Consumidor " << id << "] Arquivo salvo como: " << saidaCsv << endl;
 
         } catch (const exception& e) {
             cerr << "[Erro Consumidor " << id << "] ao processar " << arquivo << ": " << e.what() << endl;
@@ -125,7 +125,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
                 break;
 
             if (!extratorTratadorFila.empty()) {
-                DataFrame dfExtraido = extratorTratadorFila.front();
+                dfExtraido = extratorTratadorFila.front();
                 extratorTratadorFila.pop();
             } else {
                 continue;
@@ -135,7 +135,14 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
         try {
             // processando o dataframe extraído
             DataFrame tratado = handler.meanAlert(dfExtraido, nomeCol, numThreads);
-            cout << "[Consumidor Tratador " << id << endl;
+            if (tratado.empty()) {
+                cerr << "[Tratador " << id << "] DataFrame TRATADO está vazio!\n";
+            } else {
+                cout << "[Tratador " << id << "] Tratamento completo. Linhas: " << tratado.size() 
+                    << ", Colunas: " << tratado.numCols() << "\n";
+                tratado.display();
+            }
+
 
             LoaderItem item{
                 std::move(tratado),
@@ -186,6 +193,13 @@ void consumidorLoader(int id) {
         try {
             save_as_csv(item.df, "database/" + item.nomeArquivoOriginal);
             cout << "[Loader " << id << "] Arquivo salvo como: " << item.nomeArquivoOriginal << endl;
+            if (item.df.empty()) {
+                cerr << "[Loader " << id << "] AVISO: DataFrame salvo está VAZIO!\n";
+            } else {
+                cout << "[Loader " << id << "] DataFrame salvo com " << item.df.size() 
+                    << " linhas e " << item.df.numCols() << " colunas.\n";
+            }
+
         } catch (const exception& e) {
             cerr << "[Erro Loader " << id << "] ao salvar arquivo: " << e.what() << endl;
         }
@@ -238,17 +252,23 @@ void executarPipeline(int numConsumidores) {
         consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
     }
 
-    // Esperar produtor e consumidores extratores
-    prod.join();
-    for (auto& t : consumidoresExtrator) {
-        t.join();
-    }
-
     // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
     for (int i = 0; i < 2; ++i) {
         consumidoresTratador.emplace_back(consumidorTrat, i + 1, "infectados", 4);
     }
+
+    // Cria consumidores finais (loader)
+    vector<thread> consumidoresLoader;
+    for (int i = 0; i < 2; ++i) {
+        consumidoresLoader.emplace_back(consumidorLoader, i + 1);
+    }
+
+    // Aguarda o produtor
+    prod.join();
+
+    // Aguarda extratores
+    for (auto& t : consumidoresExtrator) t.join();
 
     // Sinaliza que extração terminou e notifica tratadores
     {
@@ -257,28 +277,18 @@ void executarPipeline(int numConsumidores) {
     }
     extTratcondVar.notify_all();
 
-    // Cria consumidores finais (loader)
-    vector<thread> consumidoresLoader;
-    for (int i = 0; i < 2; ++i) {
-        consumidoresLoader.emplace_back(consumidorLoader, i + 1);
-    }
+    // Aguarda tratadores
+    for (auto& t : consumidoresTratador) t.join();
 
-    // Esperar tratadores
-    for (auto& t : consumidoresTratador) {
-        t.join();
-    }
-
-    // Sinalizar fim do tratamento e notificar loaders
+    // Sinaliza fim do tratamento e notifica loaders
     {
         lock_guard<mutex> lock(tratLoadMutex);
         tratadorEncerrado = true;
     }
     tratLoadCondVar.notify_all();
     
-    // Esperar loaders
-    for (auto& t : consumidoresLoader) {
-        t.join();
-    }
+    // Aguarda loaders
+    for (auto& t : consumidoresLoader) t.join();
     
     cout << "[Pipeline] Execução completa com " << numConsumidores << " consumidor(es).\n";
 }

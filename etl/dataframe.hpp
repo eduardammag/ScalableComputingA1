@@ -32,8 +32,6 @@ private:
     }
 
 public:
-    // Construtor padrão
-    // DataFrame();
 
     // Construtor que recebe nomes e tipos das colunas
     DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes);
@@ -67,6 +65,12 @@ public:
 
     // Retorna os nomes das colunas
     const std::vector<std::string>& getColumnNames() const;
+
+    // Retorna true se o DataFrame não tiver nenhuma linha
+    bool empty() const;
+
+    // Retorna o número de colunas no DataFrame
+    int numCols() const;
 
 };
 
