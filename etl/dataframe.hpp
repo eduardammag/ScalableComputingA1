@@ -49,6 +49,8 @@ public:
 
     // Exibe o DataFrame no console
     void display() const;
+
+    tuple<vector<string>, ColumnType> getColumn(const string& name) const;
 };
 
 #endif 

@@ -1,5 +1,6 @@
 #include "dataframe.hpp" // Inclui o cabeçalho com a definição da classe DataFrame
 #include <algorithm>
+#include <tuple> 
 
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
@@ -112,4 +113,22 @@ void DataFrame::display() const {
         }
         cout << endl;
     }
+}
+
+
+tuple<vector<string>, ColumnType> DataFrame::getColumn(const string& name) const {
+    auto it = find(columnNames.begin(), columnNames.end(), name);
+    if (it == columnNames.end()) {
+        cerr << "Column '" << name << "' not found.\n";
+        return std::make_tuple(vector<string>{}, ColumnType::STRING); // valor padrão
+    }
+
+    size_t index = distance(columnNames.begin(), it);
+    vector<string> column;
+
+    for (const auto& row : data) {
+        column.push_back(row[index]);
+    }
+
+    return make_tuple(column, columnTypes[index]);
 }
