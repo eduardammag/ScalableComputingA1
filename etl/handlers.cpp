@@ -2,128 +2,280 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
-#include <chrono>
 
+//para fazer unique e sort
 #include <algorithm>
-#include <vector>
-#include <unordered_map>
-#include <string>
 
 using namespace std;
 
-//Tratadores a serem feitos 
-// tira a média de uma coluna e identifica linhas que estão acima da média
-// agrupa por região e calcula o total de casos
-
-// Alertas de acima da média
-DataFrame meanAlert(const DataFrame& input, const string& nameCol) 
+// soma parcial de uma coluna (uma thread processa uma parte da coluna)
+void partialSum(const vector<string>& values, size_t start, size_t end, double& sum, double& count, mutex& mtx) 
 {
+    //variáveis da thread local
+    double localSum = 0.0;
+    double localCount = 0.0;
+
+    for (size_t i = start; i < end; ++i) 
+    {
+        localSum += stoi(values[i]);
+        localCount += 1.0;
+    }
+
+    //protege a variável compartilhada
+    lock_guard<mutex> lock(mtx);
+    sum += localSum;
+    count += localCount;
+}
+
+// função para verificar quais linhas estão acima da média (uma thread processa uma parte da coluna)
+void partialAlert(const vector<string>& values, size_t start, size_t end, double mean, vector<string>& alertas, mutex& mtx) {
+    // variáveis da thread local
+    vector<string> localAlerts;
+    localAlerts.reserve(end - start);
+
+    //percorre as linhas do df e verifica se estão acima da média
+    for (size_t i = start; i < end; ++i) {
+        if (stoi(values[i]) > mean)
+            localAlerts.push_back("True");
+        else
+            localAlerts.push_back("False");
+    }
+    
+    // protegendo região crítica
+    lock_guard<mutex> lock(mtx);
+    for (size_t i = 0; i < localAlerts.size(); ++i) {
+        alertas[start + i] = localAlerts[i];
+    }
+}
+
+// monta uma única coluna em paralelo
+// o dataframe esta estruturado por linhas, então devemos acessar as linhas e pegar o elemento no índice da coluna
+void getSingleColPar(const DataFrame& input, size_t start, size_t end, size_t colIndex, 
+    mutex& mtx, vector<string>& colValues) 
+{   
+    vector<string> localColValues;
+    localColValues.reserve(end - start);
+
+    // percorre as linhas do df e acessa a coluna passada
+    for (size_t i = start; i < end; ++i) 
+    {
+        localColValues.push_back(input.getRow(i)[colIndex]);
+    }
+
+    //adicicionando os valores locais ao vetor compartilhado
+    lock_guard<mutex> lock(mtx);
+    for (size_t i = 0; i < localColValues.size(); ++i) 
+    {
+        colValues[start + i] = localColValues[i];
+    }
+}
+
+// função de gerar alertas para registros acima da média
+DataFrame meanAlert(const DataFrame& input, const string& nameCol, int numThreads) 
+{
+    // inicialização
     DataFrame output = input;
-    tuple<vector<string>, ColumnType> coluna;
-
-    auto [colValues, colType] = input.getColumn(nameCol);
-
-    if (colType == ColumnType::STRING)
+    size_t colIndex = input.colIdx(nameCol);
+    
+    if (input.typeCol(colIndex) == ColumnType::STRING)
     {
         cout << "Coluna de texto" << endl;
         return output;
     }
 
+    size_t n = input.size();
+    size_t chunkSize = n / numThreads;
+    // vetor compartilhado
+    vector<string> colValues(n);
+
+    // inicialização do as threads
+    mutex mtxCol;
+    vector<thread> threads;
+
+    // paralelização 0 - montar a coluna e pegar os valores
+    for (int i = 0; i < numThreads; ++i) 
+    {
+        size_t start = i * chunkSize;
+        size_t end = (i == numThreads - 1) ? n : start + chunkSize;
+        threads.emplace_back(getSingleColPar, cref(input), start, end, colIndex, ref(mtxCol), ref(colValues));
+    }
+
+    for (auto& t : threads) t.join();
+    threads.clear();
+
+    // paralelização 1 - média
     double sum = 0.0;
     double count = 0.0;
+    mutex mtxSum;
 
-    for (const auto& elem : colValues) 
+    //percorre pedaços da coluna somando
+    for (size_t i = 0; i < numThreads; ++i) 
     {
-        sum += stoi(elem);
-        count++;        
+        size_t start = i * chunkSize;
+        size_t end = (i == numThreads - 1) ? n : start + chunkSize;
+        threads.emplace_back(partialSum, cref(colValues), start, end, ref(sum), ref(count), ref(mtxSum));
     }
 
-    auto mean = sum / count;
+    for (auto& t : threads) t.join();
+    threads.clear();
 
-    vector<string> alertas;
+    //média calculada totalmente
+    double mean = sum / count;
 
-    for (const auto& elem : colValues) 
+    // paralelização 2 - identificar linhas acima da média
+    // nova coluna de True/False
+    //vetor compartilhado
+    vector<string> alertas(n);
+    mutex mtxAlerts;
+
+    // percorre a coluna original identificando as linhas acima da média
+    for (size_t i = 0; i < numThreads; ++i) 
     {
-        if (stoi(elem) > mean)
-        {
-            alertas.push_back("True");
-        }
-        else
-        {
-            alertas.push_back("False");
-        }        
+        size_t start = i * chunkSize;
+        size_t end = (i == numThreads - 1) ? n : start + chunkSize;
+        threads.emplace_back(partialAlert, cref(colValues), start, end, mean, ref(alertas), ref(mtxAlerts));
     }
 
+    for (auto& t : threads) t.join();
+
+    //adiciona a nova coluna de alertas ao dataframe
     output.addColumn("Alertas", ColumnType::STRING, alertas);
-    cout<< "Alertas criados" << endl;
+    // cout << "Alertas criados" << endl;
     return output;
 }
 
-DataFrame groupRegions(const DataFrame& input, const string& groupedCol, const string& aggCol) 
+//pega duas colunas ao mesmo tempo, uma para o agrupamento e outra para a agregação
+void getColGroup(const DataFrame& input, size_t start, size_t end, size_t colIndexGroup, 
+                size_t colIndexAgg, mutex& mtx, vector<string>& colValues, vector<string>& colValuesAgg) 
 {
-    tuple<vector<string>, ColumnType> coluna;
-    
-    auto [groupValues, groupType] = input.getColumn(groupedCol);
-    auto [aggValues, aggType] = input.getColumn(aggCol);
-    
-    if (groupType == ColumnType::STRING || aggType == ColumnType::STRING)
+    //variáveis da thread corrente
+    vector<string> localColValues;
+    vector<string> localColValuesAgg;
+    localColValues.reserve(end - start);
+    localColValuesAgg.reserve(end - start);
+
+    // acessando os valores das colunas passadas
+    for (size_t i = start; i < end; ++i) 
+    {
+        localColValues.push_back(input.getRow(i)[colIndexGroup]);
+        localColValuesAgg.push_back(input.getRow(i)[colIndexAgg]);
+    }
+
+    //protege a variável compartilhada
+    lock_guard<mutex> lock(mtx);
+    for (size_t i = 0; i < localColValues.size(); ++i) 
+    {
+        colValues[start + i] = localColValues[i];
+        colValuesAgg[start + i] = localColValuesAgg[i];
+    }
+}
+
+// agregação de grupos de uma mesma thread
+void agregarGrupoPar(const std::vector<int>& grupos,
+    const std::vector<int>& ColOriginal,
+    const std::vector<int>& aggColOriginal, mutex& totalsMutex, 
+    std::unordered_map<std::string, double>& regionTotals) 
+{   
+    // mapemaento local para armazenar os totais por grupo
+    std::unordered_map<std::string, double> localMap;
+
+    // iterando sobre os grupos dessa thread
+    for (int groupValue : grupos) 
+    {
+        double total = 0.0;
+        // somando os valores
+        for (size_t i = 0; i < ColOriginal.size(); ++i) 
+        {
+            if (ColOriginal[i] == groupValue) 
+            {
+            total += aggColOriginal[i];
+            }
+        }
+        localMap[std::to_string(groupValue)] = total;
+    }
+
+    // Atualiza o mapa global com mutex
+    std::lock_guard<std::mutex> lock(totalsMutex);
+    for (const auto& [grupo, total] : localMap) 
+    {
+        regionTotals[grupo] = total;
+    }
+}
+
+// faz o agrupamento e a agregação de duas colunas
+DataFrame groupedDf(const DataFrame& input, const string& groupedCol, const string& aggCol, int numThreads) 
+{
+    auto idxGroup = input.colIdx(groupedCol);
+    auto idxAgg = input.colIdx(aggCol);
+
+    if (input.typeCol(idxGroup) == ColumnType::STRING || input.typeCol(idxAgg) == ColumnType::STRING)
     {
         cout << "Coluna de texto" << endl;
         return input;
     }
-    
-    vector<int> intGroupValues = stringToInt(groupValues);
-    vector<int> intAggValues = stringToInt(aggValues);
-    
-    // ordenar e tirar duplicatas consecutivas
+
+    // inicialização das threads
+    size_t n = input.size();
+    size_t chunkSize = n / numThreads;
+    vector<thread> threads;
+    mutex mtxCol;
+
+    // paralelização 1 - pegar os valores das colunas de agregação e agrupamento
+    vector<string> colValuesGroup(n);
+    vector<string> colValuesAgg(n);
+
+    // montando as duas colunas passadas
+    for (size_t i = 0; i < numThreads; ++i) 
+    {
+        size_t start = i * chunkSize;
+        size_t end = (i == numThreads - 1) ? n : start + chunkSize;
+        threads.emplace_back(getColGroup, cref(input), start, end, idxGroup, idxAgg, ref(mtxCol), ref(colValuesGroup), ref(colValuesAgg));
+    }
+
+    for (auto& t : threads) t.join();
+    threads.clear();
+
+    // convertendo a coluna para inteiros
+    vector<int> groupColOriginal, aggColOriginal;
+    for (const auto& val : colValuesGroup) groupColOriginal.push_back(stoi(val));
+    for (const auto& val : colValuesAgg) aggColOriginal.push_back(stoi(val));
+
+    // tirando as duplicatas dos grupos, primeiro ordena e depois tira as duplicatas consecutivas
+    vector<int> intGroupValues = groupColOriginal;
     sort(intGroupValues.begin(), intGroupValues.end()); 
     auto last = unique(intGroupValues.begin(), intGroupValues.end());
     intGroupValues.erase(last, intGroupValues.end());
-    
-    // Cria um mapa para armazenar os totais por região
-    std::unordered_map<string, double> regionTotals;
-    
-    for (const auto& groupValue : intGroupValues) 
+
+    mutex totalsMutex;
+    unordered_map<string, double> regionTotals;
+
+    // paralelização 2 - cada thread agrega uma certa quantidade de grupos
+    size_t step = intGroupValues.size() / numThreads;
+    for (int t = 0; t < numThreads; ++t) 
     {
-        double total = 0.0;
-        for (size_t i = 0; i < intGroupValues.size(); ++i) 
-        {
-            if (intGroupValues[i] == groupValue) 
-            {
-                total += intAggValues[i];
-            }
-        }
-        regionTotals[to_string(groupValue)] = total;
+        size_t start = t * step;
+        size_t end = (t == numThreads - 1) ? intGroupValues.size() : start + step;
+
+        vector<int> gruposLocais(intGroupValues.begin() + start, intGroupValues.begin() + end);
+
+        threads.emplace_back(agregarGrupoPar, gruposLocais, cref(groupColOriginal),
+                             cref(aggColOriginal), ref(totalsMutex), ref(regionTotals));
     }
-    
-    // Adiciona os resultados ao DataFrame de saída
-    vector<string> nomesColunas;
-    nomesColunas.push_back("Grupos");
-    nomesColunas.push_back("Agregação");
 
-    vector<ColumnType> tipos;
-    tipos.push_back(ColumnType::STRING);
-    tipos.push_back(ColumnType::DOUBLE);
+    for (auto& t : threads) t.join();
 
-    DataFrame output = DataFrame(nomesColunas, tipos);
+    // inicialização um novo dataframe só com a coluna de grupos e agregação 
+    DataFrame output({ "Grupos", "Agregação" }, { ColumnType::STRING, ColumnType::DOUBLE });
 
-    for (const auto& pair : regionTotals) 
+    for (const auto& [grupo, total] : regionTotals) 
     {
-        output.addRow({pair.first, to_string(pair.second)});
+        output.addRow({ grupo, to_string(total) });
     }
+
+    cout << "DataFrame agrupado criado" << endl;
 
     return output;
 }
-
-vector<int> stringToInt(const vector<string>& strVec) {
-    vector<int> intVec;
-    for (const auto& str : strVec) {
-        intVec.push_back(stoi(str));
-    }
-    return intVec;
-}
-
-
 
 
 /*
@@ -131,16 +283,24 @@ vector<int> stringToInt(const vector<string>& strVec) {
 teste da main
 
 Extrator extrator;
-
-        // Teste com um arquivo .csv (como um dos hospitais)
         DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
         std::cout << "\nArquivo CSV carregado com sucesso:\n";
-        df_csv.display();
-        DataFrame teste = meanAlert(df_csv, "Idade");
-        teste.display();
+        DataFrame teste = groupedDf(df_csv, "CEP", "Idade",5);
+        // df_csv.display();
+        for (int n = 1; n <= 8; n += 1) {
+                std::cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+                auto inicio = std::chrono::high_resolution_clock::now();
+        
+                // executarPipeline(n);  // Pipeline com n consumidores
+                teste = groupedDf(df_csv, "CEP", "Idade",n);
+        
+                auto fim = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> duracao = fim - inicio;
+                teste.display();
+        
+                std::cout << "Tempo: " << duracao.count() << " segundos.\n";
+            }
 
-        teste = groupRegions(df_csv, "CEP", "Idade");
-        teste.display();
 
 // 1. DataCleaner - Remove nulos e duplicatas
 DataFrame DataCleaner::process(const DataFrame& input) {
