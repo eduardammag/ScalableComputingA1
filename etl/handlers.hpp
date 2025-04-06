@@ -4,6 +4,8 @@
 // #include "pipeline.hpp"
 #include <thread>
 #include <chrono>
+#include <mutex>
+#include <unordered_map>
 
 using namespace std;
 
@@ -16,9 +18,19 @@ public:
     virtual ~Handler() {}
 };
 
-DataFrame meanAlert(const DataFrame& , const string& ); 
-vector<int> stringToInt(const vector<string>&);
-DataFrame groupRegions(const DataFrame& , const string& , const string& ) ;
+DataFrame meanAlert(const DataFrame& , const string& , int );
+void partialAlert(const vector<string>& , size_t , size_t , double , vector<string>& , mutex& );
+void partialSum(const vector<string>& , size_t , size_t , double& , double& , mutex& );
+
+void agregarGrupo(const std::vector<int>&, const std::vector<int>&,
+    const std::vector<int>&, mutex&, std::unordered_map<std::string, double>&); 
+
+void getColPar(const DataFrame& , size_t , size_t , size_t , 
+    size_t , mutex& , vector<string>& , vector<string>& );
+DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
+    
+    // vector<int> stringToInt(const vector<string>&);
+// DataFrame groupRegions(const DataFrame& , const string& , const string& ) ;
 /*
 // 1. Tratador de Limpeza de Dados
 class DataCleaner : public Handler {
