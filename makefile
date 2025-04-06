@@ -12,6 +12,7 @@ SRCS = \
     etl/dataframe.cpp \
     etl/extrator.cpp \
     etl/handlers.cpp \
+	etl/loader.cpp  \
     main.cpp \
 	pipeline/pipeline.cpp \
 

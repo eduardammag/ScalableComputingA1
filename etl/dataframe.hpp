@@ -32,6 +32,9 @@ private:
     }
 
 public:
+    // Construtor padrão
+    // DataFrame();
+
     // Construtor que recebe nomes e tipos das colunas
     DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes);
 

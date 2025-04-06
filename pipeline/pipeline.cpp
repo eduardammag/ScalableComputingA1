@@ -16,7 +16,7 @@
 using namespace std;
 
 
-// Fila compartilhada entre fila de aruivos (produtor) e extrator (consumidor)
+// Fila compartilhada entre fila de arquivos (produtor) e extrator (consumidor)
 queue<string> filaArquivos;
 mutex filaMutex;
 condition_variable condVar;
@@ -27,6 +27,12 @@ queue<DataFrame> extratorTratadorFila;
 mutex extTratMutex;
 condition_variable extTratcondVar;
 atomic<bool> extTratencerrado(false);
+
+// Fila compartilhada entre handler (produtor) e loader (consumidor)
+queue<LoaderItem> tratadorLoaderFila;
+mutex tratLoadMutex;
+condition_variable tratLoadCondVar;
+atomic<bool> tratadorEncerrado(false);
 
 // PRODUTOR: adiciona arquivos à fila
 void produtor(const vector<string>& arquivos) {
@@ -99,7 +105,7 @@ void consumidorExtrator(int id) {
     cout << "[Consumidor " << id << "] Encerrando.\n";
 }
 
-// CONSUMIDOR TRATADOR: consome da fila extraída e joga para o loader
+// CONSUMIDOR TRATADOR: consome da fila extraída e joga para o tratador
 void consumidorTrat(int id, string nomeCol, int numThreads) 
 {
     Handler handler;
@@ -131,12 +137,61 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
             DataFrame tratado = handler.meanAlert(dfExtraido, nomeCol, numThreads);
             cout << "[Consumidor Tratador " << id << endl;
 
+            LoaderItem item{
+                std::move(tratado),
+                "saida_tratada_" + to_string(id) + ".csv",
+                id
+            };
+
+            {
+                lock_guard<mutex> lock(tratLoadMutex);
+                tratadorLoaderFila.push(std::move(item));
+            }
+            tratLoadCondVar.notify_one();
+
         } catch (const exception& e) {
             cerr << "[Erro Consumidor " << id << "] ao processar " << e.what() << endl;
         }
     }
 
-    cout << "[Consumidor " << id << "] Encerrando.\n";
+    cout << "[Consumidor Tratador " << id << "] Encerrando.\n";
+}
+
+// CONSUMIDOR LOADER: consome da fila tratada e joga para o loader
+void consumidorLoader(int id) {
+    while (true) {
+        LoaderItem item = [&] {
+            unique_lock<mutex> lock(tratLoadMutex);
+            tratLoadCondVar.wait(lock, [] {
+                return !tratadorLoaderFila.empty() || tratadorEncerrado;
+            });
+
+            if (tratadorLoaderFila.empty() && tratadorEncerrado)
+                return LoaderItem{DataFrame({"ID"}, {ColumnType::INTEGER}), "", -1};
+
+            if (!tratadorLoaderFila.empty()) {
+                LoaderItem i = std::move(tratadorLoaderFila.front());
+                tratadorLoaderFila.pop();
+                return i;
+            }
+
+            // fallback
+            return LoaderItem{DataFrame({"ID"}, {ColumnType::INTEGER}), "", -1};
+        }();
+
+        // checa se é um item "falso" (fim do loop)
+        if (item.nomeArquivoOriginal == "" && item.threadId == -1)
+            break;
+
+        try {
+            save_as_csv(item.df, "database/" + item.nomeArquivoOriginal);
+            cout << "[Loader " << id << "] Arquivo salvo como: " << item.nomeArquivoOriginal << endl;
+        } catch (const exception& e) {
+            cerr << "[Erro Loader " << id << "] ao salvar arquivo: " << e.what() << endl;
+        }
+    }
+
+    cout << "[Loader " << id << "] Encerrando.\n";
 }
 
 // Função que orquestra o pipeline
@@ -144,6 +199,7 @@ void executarPipeline(int numConsumidores) {
     // Reinicia estados globais (caso a função seja chamada várias vezes)
     encerrado = false;
     extTratencerrado = false;
+    tratadorEncerrado = false;  
 
     // entre fila e extrator
     {
@@ -158,6 +214,13 @@ void executarPipeline(int numConsumidores) {
         swap(extratorTratadorFila, empty);
     }
 
+    // entre tratador e loader
+    {
+        lock_guard<mutex> lock(tratLoadMutex);
+        queue<LoaderItem> empty;
+        swap(tratadorLoaderFila, empty);
+    }  
+
     vector<string> arquivos = {
         "oms_mock.txt",
         "hospital_mock_1.csv",
@@ -166,37 +229,56 @@ void executarPipeline(int numConsumidores) {
         "secretary_data.db"
     };
 
-    // criando a fila com os arquivos
+    // Cria produtor e inializa-o
     thread prod(produtor, arquivos);
 
-    // consumindo os arquivos da fila
+    // Cria consumidores do extrator
     vector<thread> consumidoresExtrator;
     for (int i = 0; i < numConsumidores; ++i) {
         consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
     }
 
-    // primeiro produtor encerrou
+    // Esperar produtor e consumidores extratores
     prod.join();
     for (auto& t : consumidoresExtrator) {
         t.join();
     }
 
-    {
-        lock_guard<mutex> lock(extTratMutex);
-        extTratencerrado = true;
-    }
-    // avisa ao tratador que o extrator terminou
-    extTratcondVar.notify_all();
-
-    // Consumidores  dos tratadores
+    // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
     for (int i = 0; i < 2; ++i) {
         consumidoresTratador.emplace_back(consumidorTrat, i + 1, "infectados", 4);
     }
 
+    // Sinaliza que extração terminou e notifica tratadores
+    {
+        lock_guard<mutex> lock(extTratMutex);
+        extTratencerrado = true;
+    }
+    extTratcondVar.notify_all();
+
+    // Cria consumidores finais (loader)
+    vector<thread> consumidoresLoader;
+    for (int i = 0; i < 2; ++i) {
+        consumidoresLoader.emplace_back(consumidorLoader, i + 1);
+    }
+
+    // Esperar tratadores
     for (auto& t : consumidoresTratador) {
         t.join();
     }
 
+    // Sinalizar fim do tratamento e notificar loaders
+    {
+        lock_guard<mutex> lock(tratLoadMutex);
+        tratadorEncerrado = true;
+    }
+    tratLoadCondVar.notify_all();
+    
+    // Esperar loaders
+    for (auto& t : consumidoresLoader) {
+        t.join();
+    }
+    
     cout << "[Pipeline] Execução completa com " << numConsumidores << " consumidor(es).\n";
 }

@@ -2,6 +2,11 @@
 #include <algorithm>
 #include <tuple> 
 
+// Construtor padrão
+// DataFrame::DataFrame() {
+    // Não faz nada — inicializa tudo vazio
+// }
+
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
     : columnNames(colNames), columnTypes(colTypes) 
@@ -69,7 +74,7 @@ void DataFrame::addRow(const vector<string>& row)
 void DataFrame::removeRow(int index) 
 {
     // Verifica se o índice é válido
-    if (index >= 0 && index < data.size()) 
+    if (index >= 0 && index < static_cast<int>(data.size())) 
     {
         //remoção da linha
         data.erase(data.begin() + index); 
