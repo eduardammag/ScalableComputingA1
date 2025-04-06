@@ -18,18 +18,30 @@ public:
     virtual ~Handler() {}
 };
 
+// alerta para registros acima da média
 DataFrame meanAlert(const DataFrame& , const string& , int );
-void partialAlert(const vector<string>& , size_t , size_t , double , vector<string>& , mutex& );
-void partialSum(const vector<string>& , size_t , size_t , double& , double& , mutex& );
 
-void agregarGrupo(const std::vector<int>&, const std::vector<int>&,
+// funções para paralelização
+// verificação parcial de linhas acima da média
+void partialAlert(const vector<string>& , size_t , size_t , double , vector<string>& , mutex& );
+// soma parcial para calcular a média
+void partialSum(const vector<string>& , size_t , size_t , double& , double& , mutex& );
+// monta a coluna que será feita a média
+void getSingleColPar(const DataFrame& , size_t , size_t , size_t , mutex& , vector<string>& ) ;
+
+
+
+// função para agregar duas colunas
+DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
+
+// funções para paralelização
+// monta as duas colunas passadas em paralelo
+void getColGroup(const DataFrame& , size_t , size_t , size_t , 
+    size_t , mutex& , vector<string>& , vector<string>& );
+// agrega a coluna de agregação de acordo com os grupos
+void agregarGrupoPar(const std::vector<int>&, const std::vector<int>&,
     const std::vector<int>&, mutex&, std::unordered_map<std::string, double>&); 
 
-void getColPar(const DataFrame& , size_t , size_t , size_t , 
-    size_t , mutex& , vector<string>& , vector<string>& );
-DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
-    
-    // vector<int> stringToInt(const vector<string>&);
 // DataFrame groupRegions(const DataFrame& , const string& , const string& ) ;
 /*
 // 1. Tratador de Limpeza de Dados
