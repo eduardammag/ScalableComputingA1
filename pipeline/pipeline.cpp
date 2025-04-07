@@ -85,7 +85,7 @@ void consumidorExtrator(int id) {
                 cerr << "[Consumidor " << id << "] DataFrame VAZIO após extração de " << arquivo << endl;
             } else {
                 cout << "[Consumidor " << id << "] DataFrame carregado com " << df.size() << " linhas e " << df.numCols() << " colunas.\n";
-                df.display();
+                // df.display();
             }
 
 
@@ -140,7 +140,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
             } else {
                 cout << "[Tratador " << id << "] Tratamento completo. Linhas: " << tratado.size() 
                     << ", Colunas: " << tratado.numCols() << "\n";
-                tratado.display();
+                // tratado.display();
             }
 
 
@@ -235,12 +235,12 @@ void executarPipeline(int numConsumidores) {
         swap(tratadorLoaderFila, empty);
     }  
 
+    // "secretary_data.db"
     vector<string> arquivos = {
         "oms_mock.txt",
-        "hospital_mock_1.csv",
-        "hospital_mock_2.csv",
-        "hospital_mock_3.csv",
-        "secretary_data.db"
+        // "hospital_mock_1.csv",
+        // "hospital_mock_2.csv",
+        // "hospital_mock_3.csv",
     };
 
     // Cria produtor e inializa-o
@@ -255,7 +255,7 @@ void executarPipeline(int numConsumidores) {
     // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
     for (int i = 0; i < 2; ++i) {
-        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "infectados", 4);
+        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", 4);
     }
 
     // Cria consumidores finais (loader)
