@@ -68,8 +68,10 @@ void processarArquivoCSV(const string& caminhoArquivo) {
 void exibirDashboard() {
     lock_guard<mutex> lock(mtx);
 
-    cout << "\n========== DASHBOARD ATUALIZADO ==========\n";
-
+    cout << "\n========== DASHBOARD DE ANALISE DE OBITOS (OMS) ==========\n";
+    cout << "   Comparando a media de obitos por populacao das ilhas\n";
+    cout << "   com os dados individuais de cada uma para gerar alertas.\n";
+    cout << "============================================================\n";
     if (mapaEstatisticas.empty()) {
         cout << "Nenhum dado disponível ainda.\n";
         return;
