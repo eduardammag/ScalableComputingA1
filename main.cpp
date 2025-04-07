@@ -119,9 +119,19 @@ int main() {
     // }
     // return 0;
 
+    for (int n = 1; n <= 8; n *= 2) {
+        cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+        auto inicio = chrono::high_resolution_clock::now();
 
+        executarPipeline(n);  // Pipeline com n consumidores
 
-    processarArquivos("database");
+        auto fim = chrono::high_resolution_clock::now();
+        chrono::duration<double> duracao = fim - inicio;
+
+        cout << "Tempo: " << duracao.count() << " segundos.\n";
+    }
+
+    //iniciarMonitoramento("pastaDatabase");
     return 0;
     
 

@@ -173,11 +173,7 @@ void Handler::getColGroup(const DataFrame& input, size_t start, size_t end, size
 }
 
 // agregação de grupos de uma mesma thread
-<<<<<<< HEAD
-void agregarGrupoPar(const vector<int>& grupos,
-=======
 void Handler::agregarGrupoPar(const vector<int>& grupos,
->>>>>>> 788ce7245c4f4c5fa096752c61703c88178c8343
     const vector<int>& ColOriginal,
     const vector<int>& aggColOriginal, mutex& totalsMutex, 
     unordered_map<string, double>& regionTotals) 

@@ -204,7 +204,4 @@ void iniciarMonitoramento(const string& pasta) {
     }
 }
 
-// Função pública exposta no .hpp para chamar o monitoramento
-void processarArquivos(const string& pastaDatabase) {
-    iniciarMonitoramento(pastaDatabase);
-}
+
