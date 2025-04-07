@@ -171,13 +171,13 @@ void getColGroup(const DataFrame& input, size_t start, size_t end, size_t colInd
 }
 
 // agregação de grupos de uma mesma thread
-void agregarGrupoPar(const std::vector<int>& grupos,
-    const std::vector<int>& ColOriginal,
-    const std::vector<int>& aggColOriginal, mutex& totalsMutex, 
-    std::unordered_map<std::string, double>& regionTotals) 
+void agregarGrupoPar(const vector<int>& grupos,
+    const vector<int>& ColOriginal,
+    const vector<int>& aggColOriginal, mutex& totalsMutex, 
+    unordered_map<string, double>& regionTotals) 
 {   
     // mapemaento local para armazenar os totais por grupo
-    std::unordered_map<std::string, double> localMap;
+    unordered_map<string, double> localMap;
 
     // iterando sobre os grupos dessa thread
     for (int groupValue : grupos) 
@@ -191,11 +191,11 @@ void agregarGrupoPar(const std::vector<int>& grupos,
             total += aggColOriginal[i];
             }
         }
-        localMap[std::to_string(groupValue)] = total;
+        localMap[to_string(groupValue)] = total;
     }
 
     // Atualiza o mapa global com mutex
-    std::lock_guard<std::mutex> lock(totalsMutex);
+    lock_guard<mutex> lock(totalsMutex);
     for (const auto& [grupo, total] : localMap) 
     {
         regionTotals[grupo] = total;
@@ -284,21 +284,21 @@ teste da main
 
 Extrator extrator;
         DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
-        std::cout << "\nArquivo CSV carregado com sucesso:\n";
+        cout << "\nArquivo CSV carregado com sucesso:\n";
         DataFrame teste = groupedDf(df_csv, "CEP", "Idade",5);
         // df_csv.display();
         for (int n = 1; n <= 8; n += 1) {
-                std::cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
-                auto inicio = std::chrono::high_resolution_clock::now();
+                cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+                auto inicio = chrono::high_resolution_clock::now();
         
                 // executarPipeline(n);  // Pipeline com n consumidores
                 teste = groupedDf(df_csv, "CEP", "Idade",n);
         
-                auto fim = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> duracao = fim - inicio;
+                auto fim = chrono::high_resolution_clock::now();
+                chrono::duration<double> duracao = fim - inicio;
                 teste.display();
         
-                std::cout << "Tempo: " << duracao.count() << " segundos.\n";
+                cout << "Tempo: " << duracao.count() << " segundos.\n";
             }
 
 

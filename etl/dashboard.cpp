@@ -120,7 +120,7 @@ void processarArquivoCSV(const string& caminhoArquivo) {
 
 // Imprime no terminal um resumo das estatísticas atuais por região/ilha
 void exibirDashboard() {
-    lock_guard<mutex> lock(mtx); // Garante acesso seguro ao mapa
+    lock_guard<mutex> lock(mtx); // Protege o acesso ao mapa compartilhado
 
     cout << "\n========== DASHBOARD ATUALIZADO ==========\n";
 
@@ -129,34 +129,42 @@ void exibirDashboard() {
         return;
     }
 
-    // Para cada região/ilha, imprime os dados disponíveis
+    // Calcula a média global de óbitos por ilha com base nos dados da OMS
+    double somaGlobalObitos = 0.0;
+    int totalIlhasOMS = 0;
+
     for (const auto& [cep, est] : mapaEstatisticas) {
-        cout << ">>> Ilha: " << cep << "\n";
-
-        if (est.totalRegistrosHospital > 0) {
-            cout << " - Internacoes: " << est.totalInternados << "\n";
-            cout << " - Idade media dos internados: "
-                 << (est.totalInternados > 0 ? est.somaIdadesInternados / est.totalInternados : 0) << "\n";
-            for (int i = 0; i < 4; ++i) {
-                cout << " - Sintoma" << (i + 1) << ": " << est.totalSintomas[i] << "\n";
-            }
+        if (est.totalRegistrosOMS > 0 && est.populacaoIlha > 0) {
+            somaGlobalObitos += static_cast<double>(est.totalObitos) / est.populacaoIlha;
+            totalIlhasOMS++;
         }
-
-        if (est.totalRegistrosSecretaria > 0) {
-            cout << " - Casos positivos: " << est.totalPositivos << "\n";
-            cout << " - Vacinados (SS): " << est.totalVacinados << "\n";
-        }
-
-        if (est.totalRegistrosOMS > 0) {
-            cout << " - Obitos (OMS): " << est.totalObitos << "\n";
-            cout << " - Recuperados: " << est.totalRecuperados << "\n";
-            cout << " - Vacinados (OMS): " << est.totalVacinadosOMS << "\n";
-            cout << " - Populacao: " << est.populacaoIlha << "\n";
-        }
-
-        cout << "------------------------------------------\n";
     }
+
+    double mediaGlobalObitos = (totalIlhasOMS > 0) ? somaGlobalObitos / totalIlhasOMS : 0.0;
+
+    cout << "Média global de óbitos por habitante (OMS): " << mediaGlobalObitos << "\n";
+    cout << "------------------------------------------\n";
+
+    for (const auto& [cep, est] : mapaEstatisticas) {
+        if (est.totalRegistrosOMS == 0 || est.populacaoIlha == 0) continue;
+
+        double mediaIlha = static_cast<double>(est.totalObitos) / est.populacaoIlha;
+        string alerta;
+
+        if (mediaIlha > mediaGlobalObitos) {
+            alerta = "ALERTA VERMELHO: Óbitos acima da média global!";
+        } else if (mediaIlha == mediaGlobalObitos) {
+            alerta = "ALERTA AMARELO: Óbitos iguais à média global.";
+        } else {
+            alerta = "ALERTA VERDE: Óbitos abaixo da média global.";
+        }
+
+        cout << ">>> Ilha " << cep << ": " << alerta << "\n";
+    }
+
+    cout << "==========================================\n";
 }
+
 
 // Função que monitora continuamente a pasta de arquivos CSV
 void iniciarMonitoramento(const string& pasta) {

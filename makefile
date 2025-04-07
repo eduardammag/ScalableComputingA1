@@ -7,13 +7,13 @@ CXX = g++
 # Flags de compilação
 CXXFLAGS = -Wall -Wextra -std=c++17
 
-# Arquivos fonte e objetos
 SRCS = \
     etl/dataframe.cpp \
     etl/extrator.cpp \
     etl/handlers.cpp \
-    main.cpp \
-	pipeline/pipeline.cpp \
+    etl/dashboard.cpp \
+    pipeline/pipeline.cpp \
+    main.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
