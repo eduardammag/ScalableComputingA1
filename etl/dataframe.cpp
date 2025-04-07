@@ -69,7 +69,7 @@ void DataFrame::addRow(const vector<string>& row)
 void DataFrame::removeRow(int index) 
 {
     // Verifica se o índice é válido
-    if (index >= 0 && index < data.size()) 
+    if (index >= 0 && index < static_cast<int>(data.size())) 
     {
         //remoção da linha
         data.erase(data.begin() + index); 
@@ -189,4 +189,14 @@ int DataFrame::size() const
 // Implementação do método getColumnNames
 const std::vector<std::string>& DataFrame::getColumnNames() const {
     return columnNames;
+}
+
+// Retorna true se o DataFrame não tiver nenhuma linha
+bool DataFrame::empty() const {
+    return data.empty();
+}
+
+// Retorna o número de colunas no DataFrame
+int DataFrame::numCols() const {
+    return columnNames.size();
 }

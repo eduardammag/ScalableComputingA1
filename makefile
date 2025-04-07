@@ -11,9 +11,15 @@ SRCS = \
     etl/dataframe.cpp \
     etl/extrator.cpp \
     etl/handlers.cpp \
+<<<<<<< HEAD
     etl/dashboard.cpp \
     pipeline/pipeline.cpp \
     main.cpp
+=======
+	etl/loader.cpp  \
+    main.cpp \
+	pipeline/pipeline.cpp \
+>>>>>>> 788ce7245c4f4c5fa096752c61703c88178c8343
 
 OBJS = $(SRCS:.cpp=.o)
 
