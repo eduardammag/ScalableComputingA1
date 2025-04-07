@@ -40,7 +40,7 @@ void produtor(const vector<string>& arquivos) {
         {
             lock_guard<mutex> lock(filaMutex);
             filaArquivos.push(arquivo);
-            cout << "[Produtor] Arquivo enfileirado: " << arquivo << endl;
+            // cout<< "[Produtor] Arquivo enfileirado: " << arquivo << endl;
         }
         condVar.notify_one(); // Avisa os consumidores
     }
@@ -80,11 +80,11 @@ void consumidorExtrator(int id) {
         try {
             // extrai os arquivos 
             DataFrame df = extrator.carregar(arquivo);
-            cout << "[Consumidor " << id << "] Processando: " << arquivo << endl;
+            // cout<< "[Consumidor " << id << "] Processando: " << arquivo << endl;
             if (df.empty()) {
                 cerr << "[Consumidor " << id << "] DataFrame VAZIO após extração de " << arquivo << endl;
             } else {
-                cout << "[Consumidor " << id << "] DataFrame carregado com " << df.size() << " linhas e " << df.numCols() << " colunas.\n";
+                // cout<< "[Consumidor " << id << "] DataFrame carregado com " << df.size() << " linhas e " << df.numCols() << " colunas.\n";
                 // df.display();
             }
 
@@ -102,7 +102,7 @@ void consumidorExtrator(int id) {
         }
     }
 
-    cout << "[Consumidor " << id << "] Encerrando.\n";
+    // cout<< "[Consumidor " << id << "] Encerrando.\n";
 }
 
 // CONSUMIDOR TRATADOR: consome da fila extraída e joga para o tratador
@@ -138,8 +138,8 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
             if (tratado.empty()) {
                 cerr << "[Tratador " << id << "] DataFrame TRATADO está vazio!\n";
             } else {
-                cout << "[Tratador " << id << "] Tratamento completo. Linhas: " << tratado.size() 
-                    << ", Colunas: " << tratado.numCols() << "\n";
+                // cout<< "[Tratador " << id << "] Tratamento completo. Linhas: " << tratado.size() 
+                    // << ", Colunas: " << tratado.numCols() << "\n";
                 // tratado.display();
             }
 
@@ -161,7 +161,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
         }
     }
 
-    cout << "[Consumidor Tratador " << id << "] Encerrando.\n";
+    // cout<< "[Consumidor Tratador " << id << "] Encerrando.\n";
 }
 
 // CONSUMIDOR LOADER: consome da fila tratada e joga para o loader
@@ -192,12 +192,12 @@ void consumidorLoader(int id) {
 
         try {
             save_as_csv(item.df, "database/" + item.nomeArquivoOriginal);
-            cout << "[Loader " << id << "] Arquivo salvo como: " << item.nomeArquivoOriginal << endl;
+            // cout<< "[Loader " << id << "] Arquivo salvo como: " << item.nomeArquivoOriginal << endl;
             if (item.df.empty()) {
                 cerr << "[Loader " << id << "] AVISO: DataFrame salvo está VAZIO!\n";
             } else {
-                cout << "[Loader " << id << "] DataFrame salvo com " << item.df.size() 
-                    << " linhas e " << item.df.numCols() << " colunas.\n";
+                // cout<< "[Loader " << id << "] DataFrame salvo com " << item.df.size() 
+                    // << " linhas e " << item.df.numCols() << " colunas.\n";
             }
 
         } catch (const exception& e) {
@@ -205,7 +205,7 @@ void consumidorLoader(int id) {
         }
     }
 
-    cout << "[Loader " << id << "] Encerrando.\n";
+    // cout<< "[Loader " << id << "] Encerrando.\n";
 }
 
 // Função que orquestra o pipeline
@@ -255,7 +255,7 @@ void executarPipeline(int numConsumidores) {
     // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
     for (int i = 0; i < 2; ++i) {
-        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", 4);
+        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
     }
 
     // Cria consumidores finais (loader)
@@ -290,5 +290,5 @@ void executarPipeline(int numConsumidores) {
     // Aguarda loaders
     for (auto& t : consumidoresLoader) t.join();
     
-    cout << "[Pipeline] Execução completa com " << numConsumidores << " consumidor(es).\n";
+    // cout<< "[Pipeline] Execução completa com " << numConsumidores << " consumidor(es).\n";
 }
