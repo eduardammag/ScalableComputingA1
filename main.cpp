@@ -131,7 +131,7 @@ int main() {
         cout << "Tempo: " << duracao.count() << " segundos.\n";
     }
 
-    //iniciarMonitoramento("pastaDatabase");
+    iniciarMonitoramento("database");
     return 0;
     
 

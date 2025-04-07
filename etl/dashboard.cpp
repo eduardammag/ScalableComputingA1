@@ -5,9 +5,9 @@
 #include <filesystem>
 #include <thread>
 #include <mutex>
-#include <chrono>
 #include <vector>
 #include <map>
+#include <set>
 #include <algorithm>
 
 using namespace std;
@@ -100,30 +100,34 @@ void exibirDashboard() {
 }
 
 void iniciarMonitoramento(const string& pasta) {
-    cout << "[INFO] Monitorando pasta: " << pasta << endl;
+    static set<string> arquivosProcessados;
+    vector<thread> threads;
 
-    while (true) {
-        vector<thread> threads;
+    {
+        lock_guard<mutex> lock(mtx);
+        mapaEstatisticas.clear();
+    }
 
-        {
-            lock_guard<mutex> lock(mtx);
-            mapaEstatisticas.clear();
+    bool novoArquivo = false;
+
+    for (const auto& entry : fs::directory_iterator(pasta)) {
+        string caminho = entry.path().string();
+        if (entry.path().extension() == ".csv" && arquivosProcessados.find(caminho) == arquivosProcessados.end()) {
+            threads.emplace_back([caminho]() {
+                processarArquivoCSV(caminho);
+            });
+            arquivosProcessados.insert(caminho);
+            novoArquivo = true;
         }
+    }
 
-        for (const auto& entry : fs::directory_iterator(pasta)) {
-            string caminho = entry.path().string();
-            if (entry.path().extension() == ".csv") {
-                threads.emplace_back([caminho]() {
-                    processarArquivoCSV(caminho);
-                });
-            }
-        }
+    for (auto& t : threads) {
+        if (t.joinable()) t.join();
+    }
 
-        for (auto& t : threads) {
-            if (t.joinable()) t.join();
-        }
-
+    if (novoArquivo || arquivosProcessados.empty()) {
         exibirDashboard();
-        this_thread::sleep_for(chrono::seconds(5));
+    } else {
+        cout << "[INFO] Nenhum novo arquivo para processar.\n";
     }
 }
