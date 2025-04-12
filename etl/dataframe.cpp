@@ -1,6 +1,12 @@
 #include "dataframe.hpp" // Inclui o cabeçalho com a definição da classe DataFrame
 #include <algorithm>
-#include <tuple> 
+#include <variant>
+#include <tuple>
+#include <iomanip> //Para formatação
+
+using std::cerr, std::cout, std::endl, std::find, std::invalid_argument;
+using std::stoi, std::stod, std::out_of_range, std::distance, std::get;
+using std::holds_alternative, std::visit;
 
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
@@ -15,7 +21,7 @@ DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& c
 }
 
 // Função para adicionar uma nova linha ao DataFrame
-void DataFrame::addRow(const vector<string>& row) 
+void DataFrame::addRow(const vector<Cell>& row) 
 {
     // Verifica se o número de elementos na linha corresponde ao número de colunas
     if (row.size() != columnNames.size()) 
@@ -24,44 +30,30 @@ void DataFrame::addRow(const vector<string>& row)
         return;
     }
 
-    // Valida cada valor da linha de acordo com o tipo da coluna correspondente
-    for (size_t i = 0; i < row.size(); ++i) 
-    {
-        if (isNull(row[i])) 
-        {
-            // Se o valor é nulo, pula validação de tipo
-            continue; 
+    for (size_t i = 0; i < row.size(); ++i) {
+        const auto& val = row[i];
+        switch (columnTypes[i]) {
+            case ColumnType::INTEGER:
+                if (!holds_alternative<int>(val)) {
+                    cerr << "Invalid INTEGER at column " << columnNames[i] << ".\n";
+                    return;
+                }
+                break;
+            case ColumnType::DOUBLE:
+                if (!holds_alternative<double>(val)) {
+                    cerr << "Invalid DOUBLE at column " << columnNames[i] << ".\n";
+                    return;
+                }
+                break;
+            case ColumnType::STRING:
+                if (!holds_alternative<std::string>(val)) {
+                    cerr << "Invalid STRING at column " << columnNames[i] << ".\n";
+                    return;
+                }
+                break;
         }
-
-        if (columnTypes[i] == ColumnType::INTEGER) 
-        {
-            try 
-            {
-                // Tenta converter o valor para inteiro
-                stoi(row[i]); 
-            } 
-            catch (...) 
-            {
-                cerr << "Invalid integer at column " << columnNames[i] << ".\n"; 
-                return;
-            }
-        } 
-        else if (columnTypes[i] == ColumnType::DOUBLE) 
-        {
-            try 
-            {
-                stod(row[i]); // Tenta converter o valor para double
-            } 
-            catch (...) 
-            {
-                cerr << "Invalid double at column " << columnNames[i] << ".\n";
-                return;
-            }
-        }
-        // Se for string, nenhuma validação necessária
     }
 
-    // Se passou por todas as validações, adiciona a linha ao DataFrame
     data.push_back(row);
 }
 
@@ -77,7 +69,7 @@ void DataFrame::removeRow(int index)
 }
 
 // Adiciona uma nova coluna ao DataFrame
-void DataFrame::addColumn(const string& name, ColumnType type, const vector<string>& values) 
+void DataFrame::addColumn(const string& name, ColumnType type, const vector<Cell>& values) 
 {
     // Verifica se o tamanho da nova coluna corresponde ao número de linhas já existentes
     if (!data.empty() && values.size() != data.size()) 
@@ -93,21 +85,15 @@ void DataFrame::addColumn(const string& name, ColumnType type, const vector<stri
     if (data.empty())
     {
         // Se ainda não há nenhuma linha, cria uma nova linha para cada valor
-        for (const auto& val : values) 
-        {
-            data.push_back({val});
-        }
+        for (const auto& val : values)  data.push_back({val});
     } else 
     {
         // Se já existem linhas, adiciona os valores às linhas correspondentes
-        for (size_t i = 0; i < data.size(); ++i) 
-        {
-            data[i].push_back(values[i]);
-        }
+        for (size_t i = 0; i < data.size(); ++i)  data[i].push_back(values[i]);
     }
 }
 
-// Remove uma coluna com base no nome da coluna
+// Remove uma coluna com base no nome dela
 void DataFrame::removeColumn(const string& name) 
 {
     // Procura a posição do nome da coluna
@@ -121,10 +107,7 @@ void DataFrame::removeColumn(const string& name)
         columnTypes.erase(columnTypes.begin() + idx);
 
         // Remove o valor correspondente em todas as linhas
-        for (auto& row : data) 
-        {
-            row.erase(row.begin() + idx);
-        }
+        for (auto& row : data)  row.erase(row.begin() + idx);
     }
 }
 
@@ -132,18 +115,18 @@ void DataFrame::removeColumn(const string& name)
 void DataFrame::display() const 
 {
     // Imprime os nomes das colunas com tabulação
-    for (const auto& name : columnNames) 
-    {
-        cout << name << "\t";
-    }
+    for (const auto& name : columnNames)  cout << name << "\t";
     cout << endl;
 
     // Imprime os valores de cada linha com tabulação
     for (const auto& row : data) 
     {
-        for (const auto& val : row) 
+        for (const auto& cell : row)
         {
-            cout << val << "\t";
+            visit([](auto&& val)
+            {
+                cout << val << "\t";
+            }, cell);
         }
         cout << endl;
     }
@@ -155,10 +138,9 @@ size_t DataFrame::colIdx(const string& name) const
     auto it = find(columnNames.begin(), columnNames.end(), name);
     if (it != columnNames.end()) 
     {
-        // posição ordinal da coluna
-        return distance(columnNames.begin(), it);
+        distance(columnNames.begin(), it);
     }
-    return -1; 
+    return static_cast<size_t>(-1);
 }
 
 // retorna o tipo da coluna na posição desejada
@@ -168,7 +150,7 @@ ColumnType DataFrame::typeCol(size_t idx) const
 }
 
 // acessa uma linha especifica do DataFrame
-const vector<string>& DataFrame::getRow(size_t index) const
+const vector<Cell>& DataFrame::getRow(size_t index) const
 {
     // verificação
     if (index >= data.size()) 
@@ -183,20 +165,20 @@ const vector<string>& DataFrame::getRow(size_t index) const
 // saber a quantidade de linhas no dataframe
 int DataFrame::size() const 
 {
-    return data.size();
+    return static_cast<int>(data.size());
 }
 
-// Implementação do método getColumnNames
+// Nomes das colunas
 const std::vector<std::string>& DataFrame::getColumnNames() const {
     return columnNames;
 }
 
-// Retorna true se o DataFrame não tiver nenhuma linha
+// Verifica se está vazio
 bool DataFrame::empty() const {
     return data.empty();
 }
 
 // Retorna o número de colunas no DataFrame
 int DataFrame::numCols() const {
-    return columnNames.size();
+    return static_cast<int>(columnNames.size());
 }

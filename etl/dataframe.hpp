@@ -2,29 +2,28 @@
 #define DATAFRAME_HPP              
 #include <iostream>                
 #include <vector>                  
-#include <string>                  
-#include <unordered_set>          
+#include <string>
+#include <variant>        
 
-using namespace std;              
+using std::string, std::vector;               
 
 // Enum para representar os tipos de dados das colunas
-enum class ColumnType {
-    INTEGER,                     
-    DOUBLE,                       
-    STRING                       
-};
+enum class ColumnType {INTEGER, DOUBLE, STRING};
+
+//Alias para tipo de célula (campo de uma tabela)
+using Cell = std::variant<int, double, std::string>;
 
 class DataFrame {
 private:
 
     // Vetor com os nomes das colunas
-    vector<string> columnNames;            
+    std::vector<std::string> columnNames;            
     
     // Vetor com os tipos de dados de cada coluna
-    vector<ColumnType> columnTypes; 
+    std::vector<ColumnType> columnTypes; 
     
-    // Matriz com os dados (armazenados como strings) ?????????
-    vector<vector<string>> data;              
+    // Matriz com os dados (usando variant para identificar seus tipos)
+    std::vector<std::vector<Cell>> data;            
 
     // Função auxiliar para verificar se um valor é considerado nulo
     bool isNull(const string& val) const {
@@ -37,13 +36,13 @@ public:
     DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes);
 
     // Adiciona uma linha de dados ao DataFrame
-    void addRow(const vector<string>& row);
+    void addRow(const vector<Cell>& row);
 
     // Remove a linha no índice especificado
     void removeRow(int index);
 
     // Adiciona uma nova coluna com nome, tipo e valores
-    void addColumn(const string& name, ColumnType type, const vector<string>& values);
+    void addColumn(const string& name, ColumnType type, const vector<Cell>& values);
 
     // Remove uma coluna com base no nome
     void removeColumn(const string& name);
@@ -52,26 +51,25 @@ public:
     void display() const;
 
     // índice de uma coluna existente
-    size_t colIdx(const string& ) const;
-
-    // retorna linha desejada
-    const vector<string>& getRow(size_t index) const;
+    size_t colIdx(const string& name) const;
 
     // retorna o tipo da coluna
-    ColumnType typeCol(size_t) const;
+    ColumnType typeCol(size_t idx) const;
+
+    // retorna linha desejada
+    const vector<Cell>& getRow(size_t index) const;
 
     // retorna a quantidade de linhas do DataFrame
-    int size() const ;
-
-    // Retorna os nomes das colunas
-    const std::vector<std::string>& getColumnNames() const;
-
-    // Retorna true se o DataFrame não tiver nenhuma linha
-    bool empty() const;
+    int size() const;
 
     // Retorna o número de colunas no DataFrame
     int numCols() const;
 
+    // Retorna os nomes das colunas
+    const vector<string>& getColumnNames() const;
+
+    // Retorna true se o DataFrame não tiver nenhuma linha
+    bool empty() const;
 };
 
 #endif 
