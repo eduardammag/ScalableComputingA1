@@ -6,11 +6,9 @@
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
+#include "dataframe.hpp"
 
 using namespace std;
-
-
-#include "dataframe.hpp"
 
 class Handler
 {
@@ -26,19 +24,21 @@ public:
 private:
     // funções para paralelização
 
-    // verificação parcial de linhas acima da média
-    void partialAlert(const vector<string>& , size_t , size_t , double , vector<string>& , mutex& );
     // soma parcial para calcular a média
-    void partialSum(const vector<string>& , size_t , size_t , double& , double& , mutex& );
+    void partialSum(const vector<Cell>& , size_t , size_t , double& , double& , mutex& );
+
+    // verificação parcial de linhas acima da média
+    void partialAlert(const vector<Cell>& , size_t , size_t , double , vector<string>& , mutex& );
+
     // monta a coluna que será feita a média
-    void getSingleColPar(const DataFrame& , size_t , size_t , size_t , mutex& , vector<string>& ) ;
+    void getSingleColPar(const DataFrame& , size_t , size_t , size_t , mutex& , vector<Cell>& ) ;
 
     // monta as duas colunas passadas em paralelo
     void getColGroup(const DataFrame& , size_t , size_t , size_t , 
-        size_t , mutex& , vector<string>& , vector<string>& );
+        size_t , mutex& , vector<Cell>& , vector<Cell>& );
     // agrega a coluna de agregação de acordo com os grupos
-    void agregarGrupoPar(const std::vector<int>&, const std::vector<int>&,
-        const std::vector<int>&, mutex&, std::unordered_map<std::string, double>&); 
+    void agregarGrupoPar(const std::vector<Cell>&, const std::vector<Cell>&,
+        const std::vector<Cell>&, mutex&, std::unordered_map<std::string, double>&); 
 };
 
 
