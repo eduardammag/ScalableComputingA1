@@ -1,4 +1,5 @@
 #include "handlers.hpp"
+#include "dataframe.hpp"
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -9,31 +10,6 @@
 #include <algorithm>
 
 using namespace std;
-
-// Função auxiliar para extrair um double de um Cell
-double toDouble(const Cell& cell)
-{
-    return visit([](auto&& arg) -> double
-    {
-        using T = decay_t<decltype(arg)>;
-        if constexpr (is_same_v<T, int> || is_same_v<T, double>) 
-            return static_cast<double>(arg);
-        else
-            throw invalid_argument("Valor não numérico em toDouble.");
-    }, cell);
-}
-
-string toString(const Cell& cell)
-{
-    return visit([](auto&& arg) -> string
-    {
-        using T = decay_t<decltype(arg)>;
-        if constexpr (is_same_v<T, string>)
-            return arg;
-        else
-            return to_string(arg);
-    }, cell);
-}
 
 // soma parcial de uma coluna (uma thread processa uma parte da coluna)
 void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, double& sum, double& count, mutex& mtx) 
@@ -134,8 +110,14 @@ DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int 
 
         threads.emplace_back([&input, &colValues, colIndex, start, end, &mtxCol]()
         {
-            vector<Cell> localCol(end - start);
+            vector<Cell> localCol;
+            localCol.reserve(end - start);
             for (int j = start; j < end; ++j)
+            {
+                localCol.push_back(input.getRow(j)[colIndex]);
+            }
+            lock_guard<mutex> lock(mtxCol);
+            for (int j = 0; j < end - start; ++j)
             {
                 colValues[start + j] = localCol[j];
             }
@@ -163,16 +145,11 @@ DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int 
             for (int j = start; j < end; ++j)
             {
                 const Cell& val = colValues[j];
-                if (holds_alternative<int>(val))
+                try
                 {
-                    localSum += std::get<int>(val);
+                    localSum += toDouble(val);
                     localCount += 1.0;
-                }
-                else if (holds_alternative<double>(val))
-                {
-                    localSum += get<double>(val);
-                    localCount += 1.0;
-                }
+                } catch (...) {}
             }
             lock_guard<mutex> lock(mtxSum);
             sum += localSum;
@@ -203,12 +180,14 @@ DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int 
             for (int j = start; j < end; ++j)
             {
                 const Cell& val = colValues[j];
-                bool isAbove = false;
 
-                if (holds_alternative<int>(val)) isAbove = get<int>(val) > mean;
-                else if (holds_alternative<double>(val)) isAbove = get<double>(val) > mean;
-
-                localAlerts[j - start] = isAbove ? "True" : "False";
+                try
+                {
+                    localAlerts[j - start] = toDouble(val) > mean ? "True" : "False";
+                } catch (...)
+                {
+                    localAlerts[j - start] = "False"; //ou "Erro"
+                }    
             }
             
             lock_guard<mutex> lock(mtxAlerts);

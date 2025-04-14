@@ -1,7 +1,9 @@
 #include "loader.hpp"
+#include "dataframe.hpp"
 #include <fstream>
 #include <stdexcept>
 #include <sstream>
+#include <variant>
 
 void save_as_csv(const DataFrame& df, const std::string& filename) {
     std::ofstream out(filename);
@@ -23,7 +25,7 @@ void save_as_csv(const DataFrame& df, const std::string& filename) {
     for (int i = 0; i < df.size(); ++i) {
         const auto& row = df.getRow(i);
         for (size_t j = 0; j < row.size(); ++j) {
-            out << row[j];
+            out << toString(row[j]);
             if (j < row.size() - 1)
                 out << ",";
         }

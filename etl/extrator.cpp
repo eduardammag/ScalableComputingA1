@@ -4,9 +4,7 @@
 #include <iostream>
 #include <filesystem>
 #include <sqlite3.h>
-// #include <algorithm>
-#include <cctype>  
-// #include <stdexcept>      
+#include <cctype> 
 
 using std::string, std::vector, std::ifstream, std::stringstream, std::runtime_error;
 // using std::stoi, std::stod;

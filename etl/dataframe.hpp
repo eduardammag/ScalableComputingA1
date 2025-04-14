@@ -5,13 +5,45 @@
 #include <string>
 #include <variant>        
 
-using std::string, std::vector;               
+using namespace std;  
 
 // Enum para representar os tipos de dados das colunas
 enum class ColumnType {INTEGER, DOUBLE, STRING};
 
 //Alias para tipo de célula (campo de uma tabela)
-using Cell = std::variant<int, double, std::string>;
+using Cell = variant<int, double, string>;
+
+// Função auxiliar para extrair um double de um Cell
+inline double toDouble(const Cell& cell)
+{
+    return visit([](auto&& arg) -> double
+    {
+        using T = decay_t<decltype(arg)>;
+        if constexpr (is_same_v<T, int> || is_same_v<T, double>) 
+            return static_cast<double>(arg);
+        else
+            throw invalid_argument("Valor não numérico em toDouble.");
+    }, cell);
+}
+
+inline string toString(const Cell& cell)
+{
+    return visit([](auto&& arg) -> string
+    {
+        // Obtém o tipo real de 'arg'
+        using T = decay_t<decltype(arg)>;
+        // Se for string, retorna diretamente
+        if constexpr (is_same_v<T, string>) return arg;
+        // Converte const char* para string
+        else if constexpr (is_same_v<T, const char*>) return string(arg);
+        // Converte booleano para "true" ou "false"
+        else if constexpr (is_same_v<T, bool>) return arg ? "true" : "false";
+        // Caso seja um tipo aritmético (como int, float, double, etc.)
+        else if constexpr (is_arithmetic_v<T>) return to_string(arg);
+        // Para outros tipos não esperados
+        else return "unknown";
+    }, cell);
+}
 
 class DataFrame {
 private:

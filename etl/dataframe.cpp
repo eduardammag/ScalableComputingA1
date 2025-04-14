@@ -4,9 +4,7 @@
 #include <tuple>
 #include <iomanip> //Para formatação
 
-using std::cerr, std::cout, std::endl, std::find, std::invalid_argument;
-using std::stoi, std::stod, std::out_of_range, std::distance, std::get;
-using std::holds_alternative, std::visit;
+using namespace std;
 
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
@@ -138,7 +136,7 @@ size_t DataFrame::colIdx(const string& name) const
     auto it = find(columnNames.begin(), columnNames.end(), name);
     if (it != columnNames.end()) 
     {
-        distance(columnNames.begin(), it);
+        return distance(columnNames.begin(), it);
     }
     return static_cast<size_t>(-1);
 }
