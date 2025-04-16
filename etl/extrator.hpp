@@ -16,6 +16,8 @@ private:
     // Função auxiliar privada para obter a extensão de um arquivo (ex: csv, txt, sqlite)
     string obterExtensao(const string& nomeArquivo);
 
+    vector<string> dividirLinha(const string& linha, char separador);
+
     // Função privada para carregar arquivos CSV ou TXT, recebendo o caminho e o separador (vírgula ou tab)
     DataFrame carregarCSVouTXT(const string& caminho, char separador);
 

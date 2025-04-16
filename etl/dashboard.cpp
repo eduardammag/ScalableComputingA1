@@ -1,4 +1,6 @@
 #include "dashboard.hpp"
+#include "dataframe.hpp"  //Para Cell, toDouble, toString
+#include "extrator.hpp"  //Para Extrator
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -16,52 +18,67 @@ namespace fs = filesystem;
 mutex mtx;
 map<string, Estatisticas> mapaEstatisticas;
 
-vector<string> dividirLinhaCSV(const string& linha) {
-    vector<string> resultado;
-    stringstream ss(linha);
-    string item;
-
-    while (getline(ss, item, ',')) {
-        resultado.push_back(item);
-    }
-    return resultado;
-}
-
-string detectarFonte(const vector<string>& colunas) {
-    if (find(colunas.begin(), colunas.end(), "Nº óbitos") != colunas.end()) return "oms";
-    return "desconhecido";
+string detectarFonte(const vector<string>& colunas) 
+{
+    // Verifica se todas as colunas necessárias estão presentes
+    bool temObitos = find(colunas.begin(), colunas.end(), "Nº óbitos") != colunas.end();
+    bool temCep = find(colunas.begin(), colunas.end(), "CEP da ilha") != colunas.end();
+    bool temPopulacao = find(colunas.begin(), colunas.end(), "População") != colunas.end();
+        
+    return (temObitos && temCep && temPopulacao) ? "oms" : "desconhecido";
 }
 
 void processarArquivoCSV(const string& caminhoArquivo) {
-    ifstream arquivo(caminhoArquivo);
-    if (!arquivo.is_open()) {
-        cerr << "[ERRO] Falha ao abrir: " << caminhoArquivo << endl;
-        return;
-    }
+    try {
+        Extrator extrator;
+        DataFrame df = extrator.carregar(caminhoArquivo);
 
-    string linha;
-    if (!getline(arquivo, linha)) return;
+        if (df.empty())
+        {
+            cerr << "[AVISO] DataFrame vazio para o arquivo: " << caminhoArquivo << endl;
+            return;
+        }
+        const vector<string>& colunas = df.getColumnNames();
+        string fonte = detectarFonte(colunas);
 
-    auto colunas = dividirLinhaCSV(linha);
-    string tipoFonte = detectarFonte(colunas);
-    if (tipoFonte != "oms") return;
-
-    while (getline(arquivo, linha)) {
-        auto campos = dividirLinhaCSV(linha);
-        if (campos.size() != colunas.size()) continue;
-
-        map<string, string> linhaMap;
-        for (size_t i = 0; i < colunas.size(); ++i) {
-            linhaMap[colunas[i]] = campos[i];
+        if (fonte != "oms") 
+        {
+            cerr << "[AVISO] Fonte desconhecida ou incompatível: " << caminhoArquivo << endl;
+            return;
         }
 
-        string cepIlha = linhaMap["CEP da ilha"];
+        // Verifique se todas as colunas necessárias existem
+        vector<string> colunasNecessarias = {"CEP da ilha", "Nº óbitos", "População"};
+        for (const auto& col : colunasNecessarias)
+        {
+            if (df.colIdx(col) == static_cast<size_t>(-1))
+            {
+                cerr << "[ERRO] Coluna necessária não encontrada: " << col << " no arquivo " << caminhoArquivo << endl;
+                return;
+            }
+        }
 
-        lock_guard<mutex> lock(mtx);
-        Estatisticas& est = mapaEstatisticas[cepIlha];
-        est.totalObitos += stoi(linhaMap["Nº óbitos"]);
-        est.populacaoIlha = stoi(linhaMap["População"]);
-        est.totalRegistrosOMS++;
+        for (const auto& linha : df.getLinhas())
+        {
+            try 
+            {
+                string cepIlha = toString(linha[df.colIdx("CEP da ilha")]);
+                int obitos = static_cast<int>(toDouble(linha[df.colIdx("Nº óbitos")]));
+                int populacao = static_cast<int>(toDouble(linha[df.colIdx("População")]));
+
+                lock_guard<mutex> lock(mtx);
+                Estatisticas& est = mapaEstatisticas[cepIlha];
+                est.totalObitos += obitos;
+                est.populacaoIlha = populacao;
+                est.totalRegistrosOMS++;
+            } catch (const exception& e) {
+                cerr << "[ERRO] Linha ignorada no arquivo " << caminhoArquivo << ": " << e.what() << endl;
+                continue;
+            }
+        }
+    } catch (const exception& e) {
+        cerr << "[ERRO CRÍTICO] Falha ao abrir ou processar: " << caminhoArquivo << " - " << e.what() << endl;
+        return;
     }
 }
 

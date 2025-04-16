@@ -9,12 +9,17 @@ using namespace std;
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
 DataFrame::DataFrame(const vector<string>& colNames, const vector<ColumnType>& colTypes)
     : columnNames(colNames), columnTypes(colTypes) 
-    {
-    // verifica se o número de nomes de colunas é igual ao número de tipos
-    if (colNames.size() != colTypes.size()) 
-    {
-        // erro se estiverem desbalanceados
-        throw invalid_argument("Number of column names and types must match."); 
+{
+    // Verificação robusta de tamanhos
+    if (colNames.size() != colTypes.size()) {
+        if (colTypes.empty()) {
+            // Se não há tipos, define todos como STRING
+            columnTypes = vector<ColumnType>(colNames.size(), ColumnType::STRING);
+        } else {
+            // Se há tipos mas não correspondem, ajusta ou lança exceção
+            throw invalid_argument("Number of column names (" + to_string(colNames.size()) + 
+                                 ") and types (" + to_string(colTypes.size()) + ") must match.");
+        }
     }
 }
 
@@ -179,4 +184,10 @@ bool DataFrame::empty() const {
 // Retorna o número de colunas no DataFrame
 int DataFrame::numCols() const {
     return static_cast<int>(columnNames.size());
+}
+
+// Retorna linhas do DataFrame
+const vector<vector<Cell>>& DataFrame::getLinhas() const
+{
+    return data;
 }

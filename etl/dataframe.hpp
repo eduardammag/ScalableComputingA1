@@ -49,13 +49,13 @@ class DataFrame {
 private:
 
     // Vetor com os nomes das colunas
-    std::vector<std::string> columnNames;            
+    vector<string> columnNames;            
     
     // Vetor com os tipos de dados de cada coluna
-    std::vector<ColumnType> columnTypes; 
+    vector<ColumnType> columnTypes; 
     
     // Matriz com os dados (usando variant para identificar seus tipos)
-    std::vector<std::vector<Cell>> data;            
+    vector<vector<Cell>> data;            
 
     // Função auxiliar para verificar se um valor é considerado nulo
     bool isNull(const string& val) const {
@@ -102,6 +102,9 @@ public:
 
     // Retorna true se o DataFrame não tiver nenhuma linha
     bool empty() const;
+
+    // Retorna as linhas do Dataframe
+    const vector<vector<Cell>>& getLinhas() const;
 };
 
 #endif 

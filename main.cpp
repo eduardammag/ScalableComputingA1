@@ -1,5 +1,5 @@
-#include "etl/dataframe.hpp"  // Corrigido com caminho relativo
-#include "etl/extrator.hpp"
+// #include "etl/dataframe.hpp"  // Corrigido com caminho relativo
+// #include "etl/extrator.hpp"
 #include "pipeline/pipeline.hpp"
 #include <iostream>
 #include <chrono>
@@ -136,13 +136,8 @@ int main() {
         }
         cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
         cout << "Tempo: " << tempo/vezes << " segundos.\n";
-}
+    }
 
     iniciarMonitoramento("database");
     return 0;
-    
-
-
-
-
 }

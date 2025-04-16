@@ -32,6 +32,39 @@ DataFrame Extrator::carregar(const string& caminhoArquivo)
     else throw runtime_error("Formato não suportado: " + ext);       // Erro para outros formatos
 }
 
+
+vector<string> Extrator::dividirLinha(const string& linha, char separador) {
+    vector<string> resultado;
+    string item;
+    bool entreAspas = false;
+
+    for (char c : linha)
+    {
+        if (c == '"')
+        {
+            entreAspas = !entreAspas;
+        } else if (c == separador && !entreAspas)
+        {
+            //Remove aspas extras do item
+            if (!item.empty() && item.front() == '"' && item.back() == '"')
+            {
+                item = item.substr(1, item.size() - 2);
+            }
+            resultado.push_back(item);
+            item.clear();
+        } else item += c;
+    }
+
+    //Adiciona o último item
+    if (!item.empty() && item.front() == '"' && item.back() == '"')
+    {
+        item = item.substr(1, item.size() - 2);
+    }
+    resultado.push_back(item);
+
+    return resultado;
+}
+
 // Carregador genérico para arquivos CSV e TXT
 DataFrame Extrator::carregarCSVouTXT(const string& caminho, char separador)
 {
@@ -43,45 +76,65 @@ DataFrame Extrator::carregarCSVouTXT(const string& caminho, char separador)
 
     // Lê a primeira linha do arquivo (cabeçalho com os nomes das colunas)
     string linha;
-    vector<string> colunas;
+    if (!getline(arquivo, linha)) 
+    {
+        throw runtime_error("Arquivo está vazio ou o cabeçalho está ausente.");
+    }
+
+    vector<string> colunas = dividirLinha(linha, separador);
     vector<vector<string>> linhasTemporarias;
     int maxAmostras = 8;
-
-    if (getline(arquivo, linha))
-    {
-        stringstream ss(linha);
-        string valor;
-        while (getline(ss, valor, separador))
-        {
-            colunas.push_back(valor);
-        }
-    }
     
-    // Lê até 10 linhas para inferência de tipo
+    // Lê até 8 linhas para inferência de tipo
     while(getline(arquivo, linha) && linhasTemporarias.size() < static_cast<size_t>(maxAmostras))
     {
-        vector<string> valores;
-        stringstream ss(linha);
-        string valor;
-        while (getline(ss, valor, separador))
+        vector<string> valores = dividirLinha(linha, separador);
+
+        //Remove linhas vazias
+        if (valores.empty()) continue;
+
+        // Valida se a linha tem o número certo de colunas
+        if (valores.size() != colunas.size()) 
         {
-            valores.push_back(valor);
+            cerr << "[AVISO] Linha ignorada - esperado: " << colunas.size() << " colunas, encontrado: " << valores.size() << endl;
+            continue;
         }
+        
         linhasTemporarias.push_back(valores);
     }
 
+    // Verificação adicional de consistência
+    if (linhasTemporarias.empty()) {
+        throw runtime_error("Nenhuma linha válida encontrada para inferência de tipos.");
+    }
+
+    // Debug: mostra informações antes da inferência
+    // cout << "Debug - Antes da inferência:\n";
+    // cout << "Número de colunas no cabeçalho: " << colunas.size() << endl;
+    // cout << "Número de linhas amostrais: " << linhasTemporarias.size() << endl;
+    // for (size_t i = 0; i < linhasTemporarias.size(); ++i) {
+    //     cout << "Linha " << i << ": " << linhasTemporarias[i].size() << " colunas\n";
+    // }
+
     vector<ColumnType> tipos = inferirTipos(linhasTemporarias);
+
+    if (colunas.size() != tipos.size())
+    {
+        cerr << "[ERRO] Numero de colunas: " << colunas.size() << " | Numero de tipos inferidos: " << tipos.size() << endl;
+        // throw invalid_argument("Number of column names and types must match.");
+        tipos = vector<ColumnType>(colunas.size(), ColumnType::STRING);
+    }
 
     // Cria o DataFrame com os nomes e tipos de colunas inferidos
     DataFrame df(colunas, tipos);
 
     // Adiciona as linhas lidas anteriormente
-    for (const auto& linha : linhasTemporarias)
+    for (const auto& valores : linhasTemporarias)
     {
         vector<Cell> row;
-        for (size_t i = 0; i < linha.size(); ++i)
+        for (size_t i = 0; i < valores.size(); ++i)
         {
-            const string& val = linha[i];
+            const string& val = valores[i];
             if (val.empty()) row.push_back(string(""));
             else if (tipos[i] == ColumnType::INTEGER) row.push_back(stoi(val));
             else if (tipos[i] == ColumnType::DOUBLE) row.push_back(stod(val));
@@ -93,17 +146,24 @@ DataFrame Extrator::carregarCSVouTXT(const string& caminho, char separador)
     // Continua lendo o restante do arquivo
     while(getline(arquivo, linha))
     {
-        vector<Cell> row;
-        stringstream ss(linha);
-        string valor;
-        size_t i = 0;
-        while (getline(ss, valor, separador) && i < tipos.size())
+        vector<string> valores = dividirLinha(linha, separador);
+
+        // Se a linha for incompleta ou maior, ajusta ao tamanho esperado
+        if (valores.size() != tipos.size())
         {
-            if (valor.empty()) row.push_back(string(""));
-            else if (tipos[i] == ColumnType::INTEGER) row.push_back(stoi(valor));
-            else if (tipos[i] == ColumnType::DOUBLE) row.push_back(stod(valor));
-            else row.push_back(valor);
-            ++i;
+            cerr << "[AVISO] Linha ignorada - tamanho inesperado: " << valores.size() << " vs " << tipos.size()  << endl;
+            continue;
+        }
+
+        vector<Cell> row;
+        
+        for (size_t i = 0; i < valores.size() && i < tipos.size(); ++i)
+        {
+            const string& val = valores[i];
+            if (val.empty()) row.push_back(string(""));
+            else if (tipos[i] == ColumnType::INTEGER) row.push_back(stoi(val));
+            else if (tipos[i] == ColumnType::DOUBLE) row.push_back(stod(val));
+            else row.push_back(val);
         }
         df.addRow(row);
     }
@@ -111,12 +171,13 @@ DataFrame Extrator::carregarCSVouTXT(const string& caminho, char separador)
 }
 
 // Função auxiliar: infere os tipos de colunas com base nos valores de uma linha
-vector<ColumnType> Extrator::inferirTipos(const vector<vector<string>>& amostras) 
-{
-    if (amostras.empty()) return {};
+vector<ColumnType> Extrator::inferirTipos(const vector<vector<string>>& amostras) {
+    if (amostras.empty() || amostras[0].empty()) {
+        return {};  // Retorna vetor vazio para ser tratado posteriormente
+    }
 
     size_t numColunas = amostras[0].size();
-    vector<ColumnType> tipos(numColunas, ColumnType::INTEGER);
+    vector<ColumnType> tipos(numColunas, ColumnType::STRING);  // Padrão para STRING
 
     for (size_t col = 0; col < numColunas; ++col) {
         bool ehInteiro = true;
@@ -128,40 +189,35 @@ vector<ColumnType> Extrator::inferirTipos(const vector<vector<string>>& amostras
             const string& val = linha[col];
             if (val.empty()) continue;
 
+            // Testa se é inteiro
             try {
                 size_t pos;
                 stoi(val, &pos);
                 if (pos != val.size()) {
                     ehInteiro = false;
-                    stod(val, &pos);  // testa double
-                    if (pos != val.size()) {
-                        ehDouble = false;
-                        break;
-                    }
                 }
             } catch (...) {
-                try {
-                    size_t pos;
-                    stod(val, &pos);
-                    if (pos != val.size()) {
-                        ehDouble = false;
-                        break;
-                    }
-                    ehInteiro = false;
-                } catch (...) {
-                    ehInteiro = false;
-                    ehDouble = false;
-                    break;
-                }
+                ehInteiro = false;
             }
+
+            // Testa se é double
+            try {
+                size_t pos;
+                stod(val, &pos);
+                if (pos != val.size()) {
+                    ehDouble = false;
+                }
+            } catch (...) {
+                ehDouble = false;
+            }
+
+            if (!ehInteiro && !ehDouble) break;
         }
 
         if (ehInteiro) {
             tipos[col] = ColumnType::INTEGER;
         } else if (ehDouble) {
             tipos[col] = ColumnType::DOUBLE;
-        } else {
-            tipos[col] = ColumnType::STRING;
         }
     }
 

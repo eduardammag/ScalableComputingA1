@@ -72,8 +72,6 @@ void consumidorExtrator(int id) {
             if (!filaArquivos.empty()) {
                 arquivo = filaArquivos.front();
                 filaArquivos.pop();
-            } else {
-                continue;
             }
         }
 
@@ -83,9 +81,11 @@ void consumidorExtrator(int id) {
             // cout<< "[Consumidor " << id << "] Processando: " << arquivo << endl;
             if (df.empty()) {
                 cerr << "[Consumidor " << id << "] DataFrame VAZIO após extração de " << arquivo << endl;
-            } else {
-                // cout<< "[Consumidor " << id << "] DataFrame carregado com " << df.size() << " linhas e " << df.numCols() << " colunas.\n";
-                // df.display();
+                continue;
+            } else if (df.getColumnNames().size() != static_cast<size_t>(df.numCols()))
+            {
+                cerr << "[Consumidor " << id << "] Inconsistência no DataFrame: " << arquivo << endl;
+                continue;
             }
 
 
@@ -101,8 +101,6 @@ void consumidorExtrator(int id) {
             cerr << "[Erro Consumidor " << id << "] ao processar " << arquivo << ": " << e.what() << endl;
         }
     }
-
-    // cout<< "[Consumidor " << id << "] Encerrando.\n";
 }
 
 // CONSUMIDOR TRATADOR: consome da fila extraída e joga para o tratador
@@ -112,7 +110,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
 
     while (true) {
         // df dummy só para inicializar o objeto
-        DataFrame dfExtraido({"ID"}, {ColumnType::INTEGER});
+        DataFrame dfExtraido({"ID"}, {});
 
         // esprando até ter pelo menos um elemento na fila ou o produtor terminar
         {
@@ -174,7 +172,7 @@ void consumidorLoader(int id) {
             });
 
             if (tratadorLoaderFila.empty() && tratadorEncerrado)
-                return LoaderItem{DataFrame({"ID"}, {ColumnType::INTEGER}), "", -1};
+                return LoaderItem{DataFrame({"ID"}, {}), "", -1};
 
             if (!tratadorLoaderFila.empty()) {
                 LoaderItem i = std::move(tratadorLoaderFila.front());
