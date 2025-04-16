@@ -3,8 +3,6 @@
 #include "../etl/extrator.hpp"
 #include "../etl/loader.hpp"
 #include "../etl/handlers.hpp"
-
-
 #include <iostream>
 #include <queue>
 #include <mutex>
@@ -92,7 +90,7 @@ void consumidorExtrator(int id) {
             //e joga na fila para os tratadores
             {
                 unique_lock<mutex> lock(extTratMutex);
-                extratorTratadorFila.push(std::move(df));
+                extratorTratadorFila.push(move(df));
             }
             // avisa os tratadores
             extTratcondVar.notify_one();
@@ -150,7 +148,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
 
             {
                 lock_guard<mutex> lock(tratLoadMutex);
-                tratadorLoaderFila.push(std::move(item));
+                tratadorLoaderFila.push(move(item));
             }
             tratLoadCondVar.notify_one();
 
@@ -175,7 +173,7 @@ void consumidorLoader(int id) {
                 return LoaderItem{DataFrame({"ID"}, {}), "", -1};
 
             if (!tratadorLoaderFila.empty()) {
-                LoaderItem i = std::move(tratadorLoaderFila.front());
+                LoaderItem i = move(tratadorLoaderFila.front());
                 tratadorLoaderFila.pop();
                 return i;
             }
@@ -241,6 +239,16 @@ void executarPipeline(int numConsumidores) {
         // "hospital_mock_3.csv",
     };
 
+    // Variáveis para medição de tempo
+    chrono::time_point<chrono::high_resolution_clock> start, end;
+    chrono::duration<double> tempoTotal, tempoExtracao, tempoTratamento, tempoLoader;
+
+    // Início do pipeline
+    start = chrono::high_resolution_clock::now();
+
+    // ---- Estágio 1: Extração ----
+    auto startExtracao = chrono::high_resolution_clock::now();
+
     // Cria produtor e inializa-o
     thread prod(produtor, arquivos);
 
@@ -249,24 +257,17 @@ void executarPipeline(int numConsumidores) {
     for (int i = 0; i < numConsumidores; ++i) {
         consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
     }
-
-    // Cria consumidores dos tratadores
-    vector<thread> consumidoresTratador;
-    for (int i = 0; i < 2; ++i) {
-        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
-    }
-
-    // Cria consumidores finais (loader)
-    vector<thread> consumidoresLoader;
-    for (int i = 0; i < 2; ++i) {
-        consumidoresLoader.emplace_back(consumidorLoader, i + 1);
-    }
-
     // Aguarda o produtor
     prod.join();
 
     // Aguarda extratores
     for (auto& t : consumidoresExtrator) t.join();
+
+    end = chrono::high_resolution_clock::now();
+    tempoExtracao = end - startExtracao;
+
+    // ---- Estágio 2: Tratamento ----
+    auto startTratamento = chrono::high_resolution_clock::now();
 
     // Sinaliza que extração terminou e notifica tratadores
     {
@@ -275,8 +276,20 @@ void executarPipeline(int numConsumidores) {
     }
     extTratcondVar.notify_all();
 
+    // Cria consumidores dos tratadores
+    vector<thread> consumidoresTratador;
+    for (int i = 0; i < 2; ++i) {
+        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
+    }
+
     // Aguarda tratadores
     for (auto& t : consumidoresTratador) t.join();
+
+    end = chrono::high_resolution_clock::now();
+    tempoTratamento = end - startTratamento;
+
+    // ---- Estágio 3: Loader ----
+    auto startLoader = chrono::high_resolution_clock::now();
 
     // Sinaliza fim do tratamento e notifica loaders
     {
@@ -284,9 +297,26 @@ void executarPipeline(int numConsumidores) {
         tratadorEncerrado = true;
     }
     tratLoadCondVar.notify_all();
-    
+
+    // Cria consumidores finais (loader)
+    vector<thread> consumidoresLoader;
+    for (int i = 0; i < 2; ++i) {
+        consumidoresLoader.emplace_back(consumidorLoader, i + 1);
+    }
     // Aguarda loaders
     for (auto& t : consumidoresLoader) t.join();
+
+    end = chrono::high_resolution_clock::now();
+    tempoLoader = end - startLoader;
+
+    // Tempo total
+    tempoTotal = end - start;
     
-    // cout<< "[Pipeline] Execução completa com " << numConsumidores << " consumidor(es).\n";
+    // ---- Exibição dos tempos ----
+    cout << "\n=== Análise de Tempo por Estágio ===" << endl;
+    cout << "1. Extração:    " << tempoExtracao.count() << " segundos" << endl;
+    cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
+    cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
+    cout << "---------------------------------" << endl;
+    cout << "Tempo Total:   " << tempoTotal.count() << " segundos\n" << endl;
 }

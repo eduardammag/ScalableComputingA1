@@ -5,7 +5,6 @@
 #include <mutex>
 #include <vector>
 #include <variant>
-
 //para fazer unique e sort
 #include <algorithm>
 
@@ -95,42 +94,43 @@ DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int 
     }
 
     int n = input.size();
-    int chunkSize = n / numThreads;
-    //vetor compartilhado
-    vector<Cell> colValues(n);
+    int chunkSize = max(n / numThreads, 1); //Garante chunkSize mínimo de 1
+    // vetor compartilhado
+    // vector<Cell> colValues(n);
 
     //Paralelização 0 - obter os valores da coluna
-    mutex mtxCol;
-    vector<thread> threads;
+    // mutex mtxCol;
+    // vector<thread> threads;
     
-    for (int i = 0; i < numThreads; ++i) 
-    {
-        int start = i * chunkSize;
-        int end = (i == numThreads - 1) ? n : start + chunkSize;
+    // for (int i = 0; i < numThreads; ++i) 
+    // {
+    //     int start = i * chunkSize;
+    //     int end = (i == numThreads - 1) ? n : start + chunkSize;
 
-        threads.emplace_back([&input, &colValues, colIndex, start, end, &mtxCol]()
-        {
-            vector<Cell> localCol;
-            localCol.reserve(end - start);
-            for (int j = start; j < end; ++j)
-            {
-                localCol.push_back(input.getRow(j)[colIndex]);
-            }
-            lock_guard<mutex> lock(mtxCol);
-            for (int j = 0; j < end - start; ++j)
-            {
-                colValues[start + j] = localCol[j];
-            }
-        });
-    }
+    //     threads.emplace_back([&input, &colValues, colIndex, start, end, &mtxCol]()
+    //     {
+    //         vector<Cell> localCol;
+    //         localCol.reserve(end - start);
+    //         for (int j = start; j < end; ++j)
+    //         {
+    //             localCol.push_back(input.getRow(j)[colIndex]);
+    //         }
+    //         lock_guard<mutex> lock(mtxCol);
+    //         for (int j = 0; j < end - start; ++j)
+    //         {
+    //             colValues[start + j] = localCol[j];
+    //         }
+    //     });
+    // }
 
-    for (auto& t : threads) t.join();
-    threads.clear();
+    // for (auto& t : threads) t.join();
+    // threads.clear();
 
     // paralelização 1 - média
     double sum = 0.0;
     double count = 0.0;
     mutex mtxSum;
+    vector<thread> threads;
 
     //percorre pedaços da coluna somando
     for (int i = 0; i < numThreads; ++i) 
@@ -138,13 +138,13 @@ DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int 
         int start = i * chunkSize;
         int end = (i == numThreads - 1) ? n : start + chunkSize;
 
-        threads.emplace_back([&colValues, start, end, &sum, &count, &mtxSum]()
+        threads.emplace_back([&input, colIndex, start, end, &sum, &count, &mtxSum]()
         {
             double localSum = 0.0;
             double localCount = 0.0;
             for (int j = start; j < end; ++j)
             {
-                const Cell& val = colValues[j];
+                const Cell& val = input.getRow(j)[colIndex]; //Acesso direto sem cópia
                 try
                 {
                     localSum += toDouble(val);
@@ -173,13 +173,13 @@ DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int 
         int start = i * chunkSize;
         int end = (i == numThreads - 1) ? n : start + chunkSize;
 
-        threads.emplace_back([&colValues, start, end, mean, &alertas, &mtxAlerts]()
+        threads.emplace_back([&input, colIndex, start, end, mean, &alertas, &mtxAlerts]()
         {
             vector<Cell> localAlerts(end - start);
 
             for (int j = start; j < end; ++j)
             {
-                const Cell& val = colValues[j];
+                const Cell& val = input.getRow(j)[colIndex]; //Acesso direto sem cópia
 
                 try
                 {

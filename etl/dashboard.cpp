@@ -57,6 +57,8 @@ void processarArquivoCSV(const string& caminhoArquivo) {
                 return;
             }
         }
+        //Mapa local para reduzir contenção no mutex
+        map<string, Estatisticas> mapaLocal;
 
         for (const auto& linha : df.getLinhas())
         {
@@ -66,7 +68,8 @@ void processarArquivoCSV(const string& caminhoArquivo) {
                 int obitos = static_cast<int>(toDouble(linha[df.colIdx("Nº óbitos")]));
                 int populacao = static_cast<int>(toDouble(linha[df.colIdx("População")]));
 
-                lock_guard<mutex> lock(mtx);
+                //Atualiza o mapa local sem lock
+                // lock_guard<mutex> lock(mtx);
                 Estatisticas& est = mapaEstatisticas[cepIlha];
                 est.totalObitos += obitos;
                 est.populacaoIlha = populacao;
@@ -75,6 +78,14 @@ void processarArquivoCSV(const string& caminhoArquivo) {
                 cerr << "[ERRO] Linha ignorada no arquivo " << caminhoArquivo << ": " << e.what() << endl;
                 continue;
             }
+        }
+        //Combina os resultados no mapa global com lock
+        lock_guard<mutex> loxk(mtx);
+        for (const auto& [cep, est] : mapaLocal)
+        {
+            mapaEstatisticas[cep].totalObitos += est.totalObitos;
+            mapaEstatisticas[cep].populacaoIlha = est.populacaoIlha;
+            mapaEstatisticas[cep].totalRegistrosOMS += est.totalRegistrosOMS;
         }
     } catch (const exception& e) {
         cerr << "[ERRO CRÍTICO] Falha ao abrir ou processar: " << caminhoArquivo << " - " << e.what() << endl;
