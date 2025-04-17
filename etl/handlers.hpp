@@ -18,8 +18,12 @@ public:
     // função para agregar duas colunas
     DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
 
-    // virtual DataFrame process(const DataFrame& input) = 0;
-    // virtual ~Handler() {};
+    // Handler para limpeza de dados - remove duplicatas e linhas/colunas com muitos valores nulos
+    void dataCleaner(DataFrame& input, int numThreads);
+
+    // Função auxiliar para verificar se uma célula é nula
+    bool isNullCell(const Cell& cell);
+
 private:
     // funções para paralelização
 
@@ -35,9 +39,19 @@ private:
     // monta as duas colunas passadas em paralelo
     void getColGroup(const DataFrame& , size_t , size_t , size_t , 
         size_t , mutex& , vector<Cell>& , vector<Cell>& );
+
     // agrega a coluna de agregação de acordo com os grupos
     void agregarGrupoPar(const std::vector<Cell>&, const std::vector<Cell>&,
-        const std::vector<Cell>&, mutex&, std::unordered_map<std::string, double>&); 
+        const std::vector<Cell>&, mutex&, std::unordered_map<std::string, double>&);
+    
+    // Função auxiliar para remover linhas duplicadas
+    void removeDuplicateRows(DataFrame& input, int numThreads);
+
+    // Função auxiliar para remover linhas com muitos valores nulos
+    void removeSparseRows(DataFrame& input, double nullThreshold, int numThreads);
+
+    // Função auxiliar para remover colunas com muitos valores nulos
+    void removeSparseColumns(DataFrame& input, double nullThreshold, int numThreads);
 };
 
 
