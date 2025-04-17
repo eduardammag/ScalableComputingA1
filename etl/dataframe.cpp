@@ -3,7 +3,7 @@
 #include <variant>
 #include <tuple>
 #include <iomanip> //Para formatação
-
+#include <thread>
 using namespace std;
 
 // Construtor da classe DataFrame: inicializa nomes e tipos das colunas
@@ -71,8 +71,7 @@ void DataFrame::removeRow(int index)
     }
 }
 
-// Adiciona uma nova coluna ao DataFrame
-void DataFrame::addColumn(const string& name, ColumnType type, const vector<Cell>& values) 
+void DataFrame::addColumn(const string& name, ColumnType type, const vector<Cell>& values, int numThreads) 
 {
     // Verifica se o tamanho da nova coluna corresponde ao número de linhas já existentes
     if (!data.empty() && values.size() != data.size()) 
@@ -88,11 +87,32 @@ void DataFrame::addColumn(const string& name, ColumnType type, const vector<Cell
     if (data.empty())
     {
         // Se ainda não há nenhuma linha, cria uma nova linha para cada valor
-        for (const auto& val : values)  data.push_back({val});
-    } else 
+        for (const auto& val : values) {
+            data.push_back({val});
+        }
+    } 
+    else 
     {
-        // Se já existem linhas, adiciona os valores às linhas correspondentes
-        for (size_t i = 0; i < data.size(); ++i)  data[i].push_back(values[i]);
+        // Paraleliza a adição do novo valor à última coluna em cada linha existente
+        size_t n = data.size();
+        int chunkSize = max(static_cast<int>(n / numThreads), 1);
+        vector<thread> threads;
+
+        for (int t = 0; t < numThreads; ++t)
+        {
+            int start = t * chunkSize;
+            int end = (t == numThreads - 1) ? n : start + chunkSize;
+
+            threads.emplace_back([this, &values, start, end]()
+            {
+                for (int i = start; i < end; ++i)
+                {
+                    data[i].push_back(values[i]);
+                }
+            });
+        }
+
+        for (auto& t : threads) t.join();
     }
 }
 

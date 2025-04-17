@@ -74,7 +74,7 @@ public:
     void removeRow(int index);
 
     // Adiciona uma nova coluna com nome, tipo e valores
-    void addColumn(const string& name, ColumnType type, const vector<Cell>& values);
+    void addColumn(const string&, ColumnType, const vector<Cell>&, int);
 
     // Remove uma coluna com base no nome
     void removeColumn(const string& name);

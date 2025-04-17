@@ -8,15 +8,13 @@
 //para fazer unique e sort
 #include <algorithm>
 
-using namespace std;
-
 // soma parcial de uma coluna (uma thread processa uma parte da coluna)
-void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, double& sum, double& count, mutex& mtx) 
+void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, double& sum, mutex& mtx) 
 {
     //variáveis da thread local
     double localSum = 0.0;
     double localCount = 0.0;
-
+    
     for (size_t i = start; i < end; ++i) 
     {
         try
@@ -25,20 +23,19 @@ void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, d
             localCount += 1.0;
         } catch (...) {}
     }
-
+    
     //protege a variável compartilhada
     lock_guard<mutex> lock(mtx);
     sum += localSum;
-    count += localCount;
 }
 
 // função para verificar quais linhas estão acima da média (uma thread processa uma parte da coluna)
-void Handler::partialAlert(const vector<Cell>& values, size_t start, size_t end, double mean, vector<string>& alertas, mutex& mtx)
+void Handler::partialAlert(const vector<Cell>& values, size_t start, size_t end, double mean, vector<string>& alertas)
 {
     // variáveis da thread local
     vector<string> localAlerts;
     localAlerts.reserve(end - start);
-
+    
     //percorre as linhas do df e verifica se estão acima da média
     for (size_t i = start; i < end; ++i)
     {
@@ -47,12 +44,10 @@ void Handler::partialAlert(const vector<Cell>& values, size_t start, size_t end,
             localAlerts.push_back(toDouble(values[i]) > mean ? "True" : "False");
         } catch (...)
         {
-            localAlerts.push_back("False"); //ou "Erro"
+            localAlerts.push_back("False"); 
         }
     }
     
-    // protegendo região crítica
-    lock_guard<mutex> lock(mtx);
     for (size_t i = 0; i < localAlerts.size(); ++i)
     {
         alertas[start + i] = localAlerts[i];
@@ -62,17 +57,17 @@ void Handler::partialAlert(const vector<Cell>& values, size_t start, size_t end,
 // monta uma única coluna em paralelo
 // o dataframe esta estruturado por linhas, então devemos acessar as linhas e pegar o elemento no índice da coluna
 void Handler::getSingleColPar(const DataFrame& input, size_t start, size_t end, size_t colIndex, 
-    mutex& mtx, vector<Cell>& colValues) 
+mutex& mtx, vector<Cell>& colValues) 
 {   
     vector<Cell> localColValues;
     localColValues.reserve(end - start);
-
+    
     // percorre as linhas do df e acessa a coluna passada
     for (size_t i = start; i < end; ++i) 
     {
         localColValues.push_back(input.getRow(i)[colIndex]);
     }
-
+    
     //adicicionando os valores locais ao vetor compartilhado
     lock_guard<mutex> lock(mtx);
     for (size_t i = 0; i < localColValues.size(); ++i) 
@@ -81,129 +76,93 @@ void Handler::getSingleColPar(const DataFrame& input, size_t start, size_t end, 
     }
 }
 
-// função de gerar alertas para registros acima da média
-DataFrame Handler::meanAlert(const DataFrame& input, const string& nameCol, int numThreads) 
+// função de gerar alertas para registros acima da média, inplace
+void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads) 
 {
-    DataFrame output = input;
     int colIndex = input.colIdx(nameCol);
     
     if (input.typeCol(colIndex) == ColumnType::STRING)
     {
         cout << "Coluna de texto" << endl;
-        return output;
     }
-
-    int n = input.size();
-    int chunkSize = max(n / numThreads, 1); //Garante chunkSize mínimo de 1
-    // vetor compartilhado
-    // vector<Cell> colValues(n);
-
-    //Paralelização 0 - obter os valores da coluna
-    // mutex mtxCol;
-    // vector<thread> threads;
     
-    // for (int i = 0; i < numThreads; ++i) 
-    // {
-    //     int start = i * chunkSize;
-    //     int end = (i == numThreads - 1) ? n : start + chunkSize;
-
-    //     threads.emplace_back([&input, &colValues, colIndex, start, end, &mtxCol]()
-    //     {
-    //         vector<Cell> localCol;
-    //         localCol.reserve(end - start);
-    //         for (int j = start; j < end; ++j)
-    //         {
-    //             localCol.push_back(input.getRow(j)[colIndex]);
-    //         }
-    //         lock_guard<mutex> lock(mtxCol);
-    //         for (int j = 0; j < end - start; ++j)
-    //         {
-    //             colValues[start + j] = localCol[j];
-    //         }
-    //     });
-    // }
-
-    // for (auto& t : threads) t.join();
-    // threads.clear();
-
+    int n = input.size();
+    //Garante chunkSize mínimo de 1
+    int chunkSize = max(n / numThreads, 1); 
+    
     // paralelização 1 - média
     double sum = 0.0;
-    double count = 0.0;
     mutex mtxSum;
     vector<thread> threads;
-
+    
     //percorre pedaços da coluna somando
     for (int i = 0; i < numThreads; ++i) 
     {
         int start = i * chunkSize;
         int end = (i == numThreads - 1) ? n : start + chunkSize;
-
-        threads.emplace_back([&input, colIndex, start, end, &sum, &count, &mtxSum]()
+        
+        threads.emplace_back([&input, colIndex, start, end, &sum, &mtxSum]()
         {
             double localSum = 0.0;
-            double localCount = 0.0;
             for (int j = start; j < end; ++j)
             {
-                const Cell& val = input.getRow(j)[colIndex]; //Acesso direto sem cópia
+                //Acesso direto sem cópia
+                const Cell& val = input.getRow(j)[colIndex]; 
                 try
                 {
                     localSum += toDouble(val);
-                    localCount += 1.0;
                 } catch (...) {}
             }
             lock_guard<mutex> lock(mtxSum);
             sum += localSum;
-            count += localCount;
         });
     }
-
+    
     for (auto& t : threads) t.join();
     threads.clear();
-
-    double mean = (count > 0.0) ? sum / count : 0.0;
-
+    
+    double mean = sum / n;
+    
     // paralelização 2 - Gerar vetor de alertas (True se valor > média)
     //vetor compartilhado
     vector<Cell> alertas(n);
     mutex mtxAlerts;
-
+    
     // percorre a coluna original identificando as linhas acima da média
     for (int i = 0; i < numThreads; ++i)
     {
         int start = i * chunkSize;
         int end = (i == numThreads - 1) ? n : start + chunkSize;
-
+        
         threads.emplace_back([&input, colIndex, start, end, mean, &alertas, &mtxAlerts]()
         {
             vector<Cell> localAlerts(end - start);
-
+            
             for (int j = start; j < end; ++j)
             {
-                const Cell& val = input.getRow(j)[colIndex]; //Acesso direto sem cópia
-
+                const Cell& val = input.getRow(j)[colIndex]; 
+                
                 try
                 {
                     localAlerts[j - start] = toDouble(val) > mean ? "True" : "False";
                 } catch (...)
                 {
-                    localAlerts[j - start] = "False"; //ou "Erro"
+                    localAlerts[j - start] = "False"; 
                 }    
             }
-            
-            lock_guard<mutex> lock(mtxAlerts);
+
+            // não tem concorreência pois cada thread modifica o seu munícipio
             for (size_t j = 0; j < localAlerts.size(); ++j)
             {
                 alertas[start + j] = localAlerts[j];
             }
         });
     }
-
+    
     for (auto& t : threads) t.join();
 
-    //adiciona a nova coluna de alertas ao dataframe
-    output.addColumn("Alertas", ColumnType::STRING, alertas);
-    return output;
 }
+
 
 //pega duas colunas ao mesmo tempo, uma para o agrupamento e outra para a agregação
 void Handler::getColGroup(const DataFrame& input, size_t start, size_t end, size_t colIndexGroup, 
@@ -351,7 +310,7 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
         output.addRow({to_string(key), to_string(sum)});
     }
     
-    cout << "DataFrame agrupado criado" << endl;
+    // cout << "DataFrame agrupado criado" << endl;
     return output;
 }
 
@@ -362,11 +321,11 @@ teste da main
 
 Extrator extrator;
         DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
-        cout << "\nArquivo CSV carregado com sucesso:\n";
+        // cout << "\nArquivo CSV carregado com sucesso:\n";
         DataFrame teste = groupedDf(df_csv, "CEP", "Idade",5);
         // df_csv.display();
         for (int n = 1; n <= 8; n += 1) {
-                cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+                // cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
                 auto inicio = chrono::high_resolution_clock::now();
         
                 // executarPipeline(n);  // Pipeline com n consumidores
@@ -376,7 +335,7 @@ Extrator extrator;
                 chrono::duration<double> duracao = fim - inicio;
                 teste.display();
         
-                cout << "Tempo: " << duracao.count() << " segundos.\n";
+                // cout << "Tempo: " << duracao.count() << " segundos.\n";
             }
 
 

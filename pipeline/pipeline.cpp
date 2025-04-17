@@ -130,8 +130,14 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
 
         try {
             // processando o dataframe extraído
-            DataFrame tratado = handler.meanAlert(dfExtraido, nomeCol, numThreads);
-            if (tratado.empty()) {
+
+            cout << "Quantidade de threads" << numThreads << endl;
+            auto startCall = chrono::high_resolution_clock::now();
+            handler.meanAlert(dfExtraido, nomeCol, numThreads);
+            auto endCall = chrono::high_resolution_clock::now();
+            chrono::duration<double> durFunc = endCall - startCall;
+            cout << "[consumidorTrat] Tempo função: " << durFunc.count() << " s\n";
+            if (dfExtraido.empty()) {
                 cerr << "[Tratador " << id << "] DataFrame TRATADO está vazio!\n";
             } else {
                 // cout<< "[Tratador " << id << "] Tratamento completo. Linhas: " << tratado.size() 
@@ -141,7 +147,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
 
 
             LoaderItem item{
-                std::move(tratado),
+                std::move(dfExtraido),
                 "saida_tratada_" + to_string(id) + ".csv",
                 id
             };
@@ -159,6 +165,7 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
 
     // cout<< "[Consumidor Tratador " << id << "] Encerrando.\n";
 }
+
 
 // CONSUMIDOR LOADER: consome da fila tratada e joga para o loader
 void consumidorLoader(int id) {
@@ -254,7 +261,7 @@ void executarPipeline(int numConsumidores) {
 
     // Cria consumidores do extrator
     vector<thread> consumidoresExtrator;
-    for (int i = 0; i < numConsumidores; ++i) {
+    for (int i = 0; i < 1; ++i) {
         consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
     }
     // Aguarda o produtor
@@ -278,7 +285,7 @@ void executarPipeline(int numConsumidores) {
 
     // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < numConsumidores; ++i) {
         consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
     }
 

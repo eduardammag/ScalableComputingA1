@@ -13,7 +13,7 @@ class Handler
 {
 public:
     // alerta para registros acima da média
-    DataFrame meanAlert(const DataFrame& , const string& , int );
+    void meanAlert(DataFrame& , const string& , int );
 
     // função para agregar duas colunas
     DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
@@ -24,10 +24,10 @@ private:
     // funções para paralelização
 
     // soma parcial para calcular a média
-    void partialSum(const vector<Cell>& , size_t , size_t , double& , double& , mutex& );
+    void partialSum(const vector<Cell>& , size_t , size_t , double&, mutex& );
 
     // verificação parcial de linhas acima da média
-    void partialAlert(const vector<Cell>& , size_t , size_t , double , vector<string>& , mutex& );
+    void partialAlert(const vector<Cell>& , size_t , size_t , double , vector<string>&);
 
     // monta a coluna que será feita a média
     void getSingleColPar(const DataFrame& , size_t , size_t , size_t , mutex& , vector<Cell>& ) ;
