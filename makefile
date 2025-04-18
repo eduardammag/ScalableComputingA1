@@ -15,6 +15,7 @@ SRCS = \
     main.cpp \
 	pipeline/pipeline.cpp \
 	etl/dashboard.cpp \
+	triggers.cpp \
 
 OBJS = $(SRCS:.cpp=.o)
 

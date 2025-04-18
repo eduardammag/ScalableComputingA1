@@ -1,20 +1,26 @@
 #ifndef TRIGGER_HPP
 #define TRIGGER_HPP
 
-#include "pipeline.hpp"
+#include <functional>
 #include <thread>
 #include <chrono>
+#include <atomic>
 
 using namespace std;
 
-class TimerTrigger {
-private:
-    shared_ptr<Pipeline> pipeline;
-    int interval;
+class Trigger 
+{
+    private:
+        function<void()> callback;
+        int interval;
+        bool isTimer;
+        atomic<bool> running;
 
-public:
-    TimerTrigger(shared_ptr<Pipeline> p, int i);
-    void start();
+    public:
+        Trigger(function<void()> func, int intervalMs, bool isTimer);
+        void start();
+        void stop();          
+        void request();   
 };
 
 #endif
