@@ -6,6 +6,8 @@
 #include <vector>
 #include <variant>
 #include <algorithm>
+#include <cctype>
+#include <unordered_map>
 
 // soma parcial de uma coluna (uma thread processa uma parte da coluna)
 void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, double& sum, mutex& mtx) 
@@ -561,37 +563,278 @@ void Handler::removeSparseColumns(DataFrame& input, double nullThreshold, int nu
 
     input = move(cleaned);
 }
-/*
 
-teste da main
-
-Extrator extrator;
-        DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
-        // cout << "\nArquivo CSV carregado com sucesso:\n";
-        DataFrame teste = groupedDf(df_csv, "CEP", "Idade",5);
-        // df_csv.display();
-        for (int n = 1; n <= 8; n += 1) {
-                // cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
-                auto inicio = chrono::high_resolution_clock::now();
-        
-                // executarPipeline(n);  // Pipeline com n consumidores
-                teste = groupedDf(df_csv, "CEP", "Idade",n);
-        
-                auto fim = chrono::high_resolution_clock::now();
-                chrono::duration<double> duracao = fim - inicio;
-                teste.display();
-        
-                // cout << "Tempo: " << duracao.count() << " segundos.\n";
-            }
-
-
-// 1. DataCleaner - Remove nulos e duplicatas
-DataFrame DataCleaner::process(const DataFrame& input) {
-    DataFrame output = input;
-    output.removeNulls();
-    output.removeDuplicates();
-    return output;
+// Tratador para validação de dados
+void Handler::validateDataFrame(DataFrame& input, int numThreads)
+{
+    if (input.empty()) return;
+    
+    const int numRows = input.size();
+    vector<bool> validRows(numRows, true);
+    
+    // Analisa as colunas para determinar regras de validação
+    vector<ColumnValidationRules> rules = analyzeColumnsForValidation(input, min(20, numRows));
+    
+    // Valida as linhas em paralelo
+    validateRows(input, rules, validRows, numThreads);
+    
+    // Cria novo DataFrame apenas com linhas válidas
+    createValidatedDataFrame(input, validRows);
 }
+
+vector<Handler::ColumnValidationRules> Handler::analyzeColumnsForValidation(const DataFrame& df, int sampleSize)
+{
+    vector<ColumnValidationRules> rules;
+    const int numCols = df.numCols();
+    const int actualSampleSize = min(sampleSize, df.size());
+    
+    for (int col = 0; col < numCols; ++col)
+    {
+        ColumnValidationRules rule;
+        rule.name = df.getColumnNames()[col];
+        rule.type = df.typeCol(col);
+        
+        analyzeColumnPattern(df, col, actualSampleSize, rule);
+        rules.push_back(rule);
+    }
+    
+    return rules;
+}
+
+void Handler::analyzeColumnPattern(const DataFrame& df, int colIndex, int sampleSize, ColumnValidationRules& rule)
+{
+    set<string> uniqueValues;
+    bool only01 = true;
+    bool onlyTwoDigits = true;
+    bool onlyFiveDigits = true;
+    
+    // Analisa os valores da coluna
+    for (int i = 0; i < sampleSize; ++i)
+    {
+        const Cell& cell = df.getRow(i)[colIndex];
+        string strVal = toString(cell);
+        
+        // Verifica padrões nos valores
+        try
+        {
+            double val = toDouble(cell);
+            if (val != 0 && val != 1) only01 = false;
+            if (strVal.length() != 2) onlyTwoDigits = false;
+            if (strVal.length() != 5) onlyFiveDigits = false;
+        } catch (...)
+        {
+            only01 = false;
+            onlyTwoDigits = false;
+            onlyFiveDigits = false;
+        }
+        
+        if (holds_alternative<string>(cell)) uniqueValues.insert(get<string>(cell));
+    }
+    
+    string lowerName = toLower(rule.name);
+    
+    // Regras para CEPs
+    if (contains(lowerName, "cep"))
+    {
+        if (contains(lowerName, "ilha") || contains(lowerName, "island"))
+        {
+            rule.isIslandCEP = true;
+            rule.minLength = 2;
+            rule.maxLength = 2;
+        } 
+        else if (contains(lowerName, "região") || contains(lowerName, "region") || contains(lowerName, "bairro")) {
+            rule.isRegionCEP = true;
+            rule.minLength = 5;
+            rule.maxLength = 5;
+        }
+        else if (onlyTwoDigits && sampleSize >= 5)
+        {
+            rule.isIslandCEP = true;
+            rule.minLength = 2;
+            rule.maxLength = 2;
+        }
+        else if (onlyFiveDigits && sampleSize >= 5)
+        {
+            rule.isRegionCEP = true;
+            rule.minLength = 5;
+            rule.maxLength = 5;
+        }
+    }
+    
+    // Regras para outros tipos de colunas
+    if (contains(lowerName, "idade") || contains(lowerName, "age"))
+    {
+        rule.allowNegative = false;
+        rule.minValue = 0;
+        rule.maxValue = 120;
+    }
+    else if (contains(lowerName, "óbitos") || contains(lowerName, "death"))
+    {
+        rule.allowNegative = false;
+        rule.minValue = 0;
+    }
+    else if (contains(lowerName, "população") || contains(lowerName, "population"))
+    {
+        rule.allowNegative = false;
+        rule.minValue = 0;
+    }
+    else if (only01 && sampleSize >= 5)
+    {
+        rule.isBoolean = true;
+        rule.allowedStrings = {"0", "1", "false", "true"};
+    }
+}
+
+void Handler::validateRows(DataFrame& input, const vector<ColumnValidationRules>& rules, vector<bool>& validRows, int numThreads)
+{
+    const int numRows = input.size();
+    mutex mtx;
+    
+    int chunkSize = max(numRows / numThreads, 1);
+    vector<thread> threads;
+    
+    for (int t = 0; t < numThreads; ++t)
+    {
+        threads.emplace_back([&, t]()
+        {
+            const int start = t * chunkSize;
+            const int end = (t == numThreads - 1) ? numRows : start + chunkSize;
+            
+            for (int i = start; i < end; ++i)
+            {
+                bool rowValid = true;
+                const auto& row = input.getRow(i);
+                
+                for (size_t col = 0; col < rules.size() && rowValid; ++col)
+                {
+                    if (!isValidCell(row[col], rules[col])) rowValid = false;
+                }
+                
+                if (!rowValid)
+                {
+                    lock_guard<mutex> lock(mtx);
+                    validRows[i] = false;
+                }
+            }
+        });
+    }
+    
+    for (auto& t : threads) t.join();
+}
+
+bool Handler::isValidCell(const Cell& cell, const ColumnValidationRules& rule) 
+{
+    if (isNullCell(cell)) return true;
+    
+    string strVal = toString(cell);
+    
+    // Validação para CEPs
+    if (rule.isIslandCEP || rule.isRegionCEP)
+    {
+        if (int(strVal.length()) != rule.maxLength) return false;
+        if (!all_of(strVal.begin(), strVal.end(), ::isdigit)) return false;
+        return true;
+    }
+    
+    // Validação para booleanos
+    if (rule.isBoolean) return rule.allowedStrings.find(strVal) != rule.allowedStrings.end();
+    
+    // Validação numérica
+    try
+    {
+        double val = toDouble(cell);
+        if (!rule.allowNegative && val < 0) return false;
+        if (val < rule.minValue || val > rule.maxValue) return false;
+    } catch (...)
+    {
+        return false;
+    }
+    
+    return true;
+}
+
+void Handler::createValidatedDataFrame(DataFrame& input, const vector<bool>& validRows)
+{
+    vector<string> colNames = input.getColumnNames();
+    vector<ColumnType> colTypes;
+    for (int i = 0; i < input.numCols(); ++i)
+    {
+        colTypes.push_back(input.typeCol(i));
+    }
+    
+    DataFrame cleaned(colNames, colTypes);
+    for (size_t i = 0; i < validRows.size(); ++i)
+    {
+        if (validRows[i])
+        {
+            cleaned.addRow(input.getRow(i));
+        }
+    }
+    
+    input = move(cleaned);
+}
+
+void Handler::filterInvalidAges(DataFrame& input, const string& ageColumnName, int maxAge, int numThreads)
+{
+    int colIndex = input.colIdx(ageColumnName);
+    if (colIndex == -1) return;
+    
+    const int numRows = input.size();
+    vector<bool> validRows(numRows, true);
+    mutex mtx;
+    
+    int chunkSize = max(numRows / numThreads, 1);
+    vector<thread> threads;
+    
+    for (int t = 0; t < numThreads; ++t)
+    {
+        threads.emplace_back([&, t]() {
+            const int start = t * chunkSize;
+            const int end = (t == numThreads - 1) ? numRows : start + chunkSize;
+            
+            for (int i = start; i < end; ++i)
+            {
+                const Cell& cell = input.getRow(i)[colIndex];
+                
+                try 
+                {
+                    double age = toDouble(cell);
+                    if (age < 0 || age > maxAge)
+                    {
+                        lock_guard<mutex> lock(mtx);
+                        validRows[i] = false;
+                    }
+                } catch (...)
+                {
+                    lock_guard<mutex> lock(mtx);
+                    validRows[i] = false;
+                }
+            }
+        });
+    }
+    
+    for (auto& t : threads) t.join();
+    createValidatedDataFrame(input, validRows);
+}
+
+// Funções auxiliares
+
+string Handler::toLower(const string& s)
+{
+    string result = s;
+    transform(result.begin(), result.end(), result.begin(), [](unsigned char c)
+    {
+        return tolower(c);
+    });
+    return result;
+}
+
+bool Handler::contains(const string& str, const string& substr)
+{
+    return str.find(substr) != string::npos;
+}
+
+/*
 
 // 2. OutlierDetector - Detecta valores anômalos
 DataFrame OutlierDetector::process(const DataFrame& input) {
