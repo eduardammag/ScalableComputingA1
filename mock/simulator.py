@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import os
 import json
 
-STATE_FILE = "simulator_state.json"
+STATE_FILE = "mock/simulator_state.json"
 
 def carregar_estado():
     if os.path.exists(STATE_FILE):
