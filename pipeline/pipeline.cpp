@@ -131,12 +131,12 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
         try {
             // processando o dataframe extraído
 
-            cout << "Quantidade de threads" << numThreads << endl;
+            // cout << "Quantidade de threads" << numThreads << endl;
             auto startCall = chrono::high_resolution_clock::now();
             handler.meanAlert(dfExtraido, nomeCol, numThreads);
             auto endCall = chrono::high_resolution_clock::now();
             chrono::duration<double> durFunc = endCall - startCall;
-            cout << "[consumidorTrat] Tempo função: " << durFunc.count() << " s\n";
+            // cout << "[consumidorTrat] Tempo função: " << durFunc.count() << " s\n";
             if (dfExtraido.empty()) {
                 cerr << "[Tratador " << id << "] DataFrame TRATADO está vazio!\n";
             } else {
@@ -194,7 +194,7 @@ void consumidorLoader(int id) {
             break;
 
         try {
-            save_as_csv(item.df, "database/" + item.nomeArquivoOriginal);
+            save_as_csv(item.df, "database_loader/" + item.nomeArquivoOriginal);
             // cout<< "[Loader " << id << "] Arquivo salvo como: " << item.nomeArquivoOriginal << endl;
             if (item.df.empty()) {
                 cerr << "[Loader " << id << "] AVISO: DataFrame salvo está VAZIO!\n";
@@ -240,10 +240,18 @@ void executarPipeline(int numConsumidores) {
 
     // "secretary_data.db"
     vector<string> arquivos = {
-        "oms_mock.txt",
-        // "hospital_mock_1.csv",
-        // "hospital_mock_2.csv",
-        // "hospital_mock_3.csv",
+        "databases_mock/secretary_data.db",
+        "databases_mock/oms_mock.txt",
+        "databases_mock/hospital_mock_1.csv",
+        "databases_mock/hospital_mock_2.csv",
+        "databases_mock/hospital_mock_3.csv",
+        "databases_mock/hospital_mock_4.csv",
+        "databases_mock/hospital_mock_5.csv",
+        "databases_mock/hospital_mock_6.csv",
+        "databases_mock/hospital_mock_7.csv",
+        "databases_mock/hospital_mock_8.csv",
+        "databases_mock/hospital_mock_9.csv",
+        "databases_mock/hospital_mock_10.csv"
     };
 
     // Variáveis para medição de tempo
@@ -261,7 +269,7 @@ void executarPipeline(int numConsumidores) {
 
     // Cria consumidores do extrator
     vector<thread> consumidoresExtrator;
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < numConsumidores; ++i) {
         consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
     }
     // Aguarda o produtor
@@ -307,7 +315,7 @@ void executarPipeline(int numConsumidores) {
 
     // Cria consumidores finais (loader)
     vector<thread> consumidoresLoader;
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < numConsumidores; ++i) {
         consumidoresLoader.emplace_back(consumidorLoader, i + 1);
     }
     // Aguarda loaders

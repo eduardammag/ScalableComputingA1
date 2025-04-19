@@ -4,6 +4,7 @@
 #include <iostream>
 #include <chrono>
 #include "etl/dashboard.hpp"
+#include <filesystem>
 
 
 using namespace std;
@@ -119,23 +120,28 @@ int main() {
     // }
     // return 0;
 
-    int vezes = 5;
-    for (int n = 1; n <= 8; n += 2) 
-    {
-        auto tempo = 0.0;
+
+    
+    int vezes = 1;
+    for (int n = 1; n <= 4; n += 1) 
+    {   cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+
+        // auto tempo = 0.0;
         for (int j = 0; j < vezes; j++)
         {
-            auto inicio = chrono::high_resolution_clock::now();
+            // auto inicio = chrono::high_resolution_clock::now();
             
             executarPipeline(n);  // Pipeline com n consumidores
+
+            // executarPipelineExtratorSimples(n);
             
-            auto fim = chrono::high_resolution_clock::now();
-            chrono::duration<double> duracao = fim - inicio;
-            tempo += duracao.count();
+            // auto fim = chrono::high_resolution_clock::now();
+            // chrono::duration<double> duracao = fim - inicio;
+            // tempo += duracao.count();
             
         }
-        cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
-        cout << "Tempo: " << tempo/vezes << " segundos.\n";
+        
+        // cout << "Tempo: " << tempo/vezes << " segundos.\n";
     }
 
     iniciarMonitoramento("database");

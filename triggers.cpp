@@ -14,6 +14,9 @@ void Trigger::start()
         {
             while (running) 
             {
+                // populando as bases usadas
+                system(R"( python "mock/simulator.py")");
+
                 auto start_time = chrono::steady_clock::now();
                 // executa a pipeline
                 callback();
@@ -48,18 +51,18 @@ void Trigger::request()
 
 
 /* teste da main
-  bool usarTimer = false;
+    bool usarTimer = true;
 
   // Intervalo em milissegundos (só será usado se for timer)
-  int intervalo = 5000;
+  int intervalo = 60000;
 
   // Cria o trigger
-  Trigger trigger(chamarPipeline, intervalo, usarTimer);
+  Trigger trigger([] {executarPipeline(2);}, intervalo, usarTimer);
 
   if (usarTimer) {
       cout << "Modo timer: executando a cada " << intervalo / 1000 << " segundos..." << endl;
       trigger.start();
-      this_thread::sleep_for(chrono::seconds(20));  // Deixa rodar por 20 segundos
+      this_thread::sleep_for(chrono::seconds(60));  // Deixa rodar por 20 segundos
       trigger.stop();
       cout << "Timer parado." << endl;
   } else {
