@@ -3,7 +3,29 @@ import sqlite3
 import random
 from datetime import datetime, timedelta
 import os
+import json
 
+STATE_FILE = "simulator_state.json"
+
+def carregar_estado():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r") as f:
+            return json.load(f)
+    return {"semana_atual": 0}
+
+def salvar_estado(estado):
+    with open(STATE_FILE, "w") as f:
+        json.dump(estado, f)
+
+
+estado = carregar_estado()
+semana_atual = estado["semana_atual"]
+
+# Definindo intervalo da semana simulada
+start_date = datetime.today() - timedelta(days=7 * (semana_atual + 1))
+end_date = start_date + timedelta(days=6)
+
+print(f"Simulando semana {semana_atual} ({start_date.strftime('%d-%m-%Y')} a {end_date.strftime('%d-%m-%Y')})")
 
 
 # 20 ilhas, 5 regiões em cada, totalizando 100 regiões
@@ -34,11 +56,14 @@ def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databa
     headers = ["Nº óbitos", "População", "CEP da ilha", "Nº recuperados", "Nº de vacinados", "Data"]
 
 
-    arquivo_existe = os.path.exists(output_file)
+    # arquivo_existe = os.path.exists(output_file)
+
+    
 
     with open(output_file, mode="w") as file:  # modo append ("a") para adicionar, "w" para sobrescrever
-        if not arquivo_existe:
-            file.write("\t".join(headers) + "\n")  # só escreve cabeçalho se for um novo arquivo
+        # if not arquivo_existe:
+        #     file.write("\t".join(headers) + "\n")  # só escreve cabeçalho se for um novo arquivo
+        file.write("\t".join(headers) + "\n")
 
         for _ in range(rows):
             num_obitos = random.randint(0, 1000)  
@@ -46,7 +71,7 @@ def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databa
             cep_ilha = random.choice(cep_ilhas)  # Escolhe aleatoriamente um dos 20 CEPs
             num_recuperados = random.randint(0, 5000)  
             num_vacinados = random.randint(0, populacao)  
-            data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")  
+            data = (start_date + timedelta(days=random.randint(0, 6))).strftime("%d-%m-%Y")
 
             file.write(f"{num_obitos}\t{populacao}\t{cep_ilha}\t{num_recuperados}\t{num_vacinados}\t{data}\n")
 
@@ -60,17 +85,18 @@ oms_generate_mock()
 ############################################### HOSPITAL-CSV ##############################################################
 def hospital_generate_mock(rows=100, output_file="databases_mock/hospital_mock.csv"):
     headers = ["ID_Hospital", "Data", "Internado", "Idade", "Sexo", "CEP", "Sintoma1", "Sintoma2", "Sintoma3", "Sintoma4"]
-    arquivo_existe = os.path.exists(output_file)
+    # arquivo_existe = os.path.exists(output_file)
 
     with open(output_file, mode="w", newline="") as file:
         writer = csv.writer(file)
-        
-        if not arquivo_existe:
-            writer.writerow(headers)  # Escreve o cabeçalho só uma vez
+        writer.writerow(headers)
+
+        # if not arquivo_existe:
+        #     writer.writerow(headers)  # Escreve o cabeçalho só uma vez
 
         for _ in range(rows):
             id_hospital = random.randint(1, 5)  # ID de 1 a 5
-            data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")
+            data = (start_date + timedelta(days=random.randint(0, 6))).strftime("%d-%m-%Y")
             internado = random.choice([True, False])
             idade = random.randint(0, 100)
             sexo = random.choice([0, 1]) # 1 = Feminino, 0 = Masculino
@@ -105,7 +131,6 @@ gerar_multiplos_arquivos_hospital(qtde_arquivos=10, min_linhas=500_000, max_linh
 def create_database(db_name="databases_mock/secretary_data.db"):
     """Cria o banco de dados e a tabela se não existir."""
    
-
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     cursor.execute('''
@@ -133,7 +158,7 @@ def secretary_generate_mock(rows=random.randint(500_000, 600_000), db_name="data
         cep = random.choice(cep_regioes)
         escolaridade = random.randint(0, 5)
         populacao = random.randint(1000, 1000000)
-        data = (datetime.today() - timedelta(days=random.randint(0, 365))).strftime("%d-%m-%Y")
+        data = (start_date + timedelta(days=random.randint(0, 6))).strftime("%d-%m-%Y")
 
         cursor.execute('''
             INSERT INTO pacientes (Diagnostico, Vacinado, CEP, Escolaridade, Populacao, Data) 
@@ -152,6 +177,10 @@ if os.path.exists("databases_mock/secretary_data.db"):
 # Criar novo banco e popular com dados mockados
 create_database()
 secretary_generate_mock()
+
+# AVANÇA PARA A PRÓXIMA SEMANA
+estado["semana_atual"] += 1
+salvar_estado(estado)
 
 
 #teste pequeno
