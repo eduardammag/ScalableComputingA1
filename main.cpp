@@ -4,6 +4,7 @@
 #include <iostream>
 #include <chrono>
 #include "etl/dashboard.hpp"
+#include <filesystem>
 
 
 using namespace std;
@@ -119,6 +120,8 @@ int main() {
     // }
     // return 0;
 
+
+    
     int vezes = 1;
     for (int n = 1; n <= 4; n += 1) 
     {   cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
