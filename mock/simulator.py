@@ -29,14 +29,14 @@ cep_regioes = [int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 6)]
 
 
 
-def oms_generate_mock(rows=random.randint(300, 500), output_file="oms_mock.txt"):
+def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databases_mock/oms_mock.txt"):
     """Gera um arquivo .txt com dados fictícios no formato da tabela da OMS."""
     headers = ["Nº óbitos", "População", "CEP da ilha", "Nº recuperados", "Nº de vacinados", "Data"]
 
 
     arquivo_existe = os.path.exists(output_file)
 
-    with open(output_file, mode="a") as file:  # modo append ("a") para adicionar
+    with open(output_file, mode="w") as file:  # modo append ("a") para adicionar, "w" para sobrescrever
         if not arquivo_existe:
             file.write("\t".join(headers) + "\n")  # só escreve cabeçalho se for um novo arquivo
 
@@ -58,11 +58,11 @@ oms_generate_mock()
 # oms_generate_mock(50)
 
 ############################################### HOSPITAL-CSV ##############################################################
-def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
+def hospital_generate_mock(rows=100, output_file="databases_mock/hospital_mock.csv"):
     headers = ["ID_Hospital", "Data", "Internado", "Idade", "Sexo", "CEP", "Sintoma1", "Sintoma2", "Sintoma3", "Sintoma4"]
     arquivo_existe = os.path.exists(output_file)
 
-    with open(output_file, mode="a", newline="") as file:
+    with open(output_file, mode="w", newline="") as file:
         writer = csv.writer(file)
         
         if not arquivo_existe:
@@ -84,14 +84,14 @@ def hospital_generate_mock(rows=100, output_file="hospital_mock.csv"):
 def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas=150):
     for i in range(1, qtde_arquivos + 1):
         num_linhas = random.randint(min_linhas, max_linhas)
-        nome_arquivo = f"hospital_mock_{i}.csv"
+        nome_arquivo = f"databases_mock/hospital_mock_{i}.csv"
         hospital_generate_mock(rows=num_linhas, output_file=nome_arquivo)
 
     print(f"\n{qtde_arquivos} arquivos hospitalares gerados com números de linhas aleatórios entre {min_linhas} e {max_linhas}.")
 
 
 # hospital_generate_mock(100)
-gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=150, max_linhas=200)
+gerar_multiplos_arquivos_hospital(qtde_arquivos=10, min_linhas=500_000, max_linhas=600_000)
 
 #teste pequeno
 #gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=5, max_linhas=20)
@@ -102,8 +102,10 @@ gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=150, max_linhas=20
 # if os.path.exists("secretary_data.db"):
 #     os.remove("secretary_data.db")
 
-def create_database(db_name="secretary_data.db"):
+def create_database(db_name="databases_mock/secretary_data.db"):
     """Cria o banco de dados e a tabela se não existir."""
+   
+
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     cursor.execute('''
@@ -120,7 +122,7 @@ def create_database(db_name="secretary_data.db"):
     conn.commit()
     conn.close()
 
-def secretary_generate_mock(rows=random.randint(50, 100), db_name="secretary_data.db"):
+def secretary_generate_mock(rows=random.randint(500_000, 600_000), db_name="databases_mock/secretary_data.db"):
     """Gera dados fictícios e insere no banco de dados."""
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -142,8 +144,15 @@ def secretary_generate_mock(rows=random.randint(50, 100), db_name="secretary_dat
     conn.close()
     print(f"Banco de dados '{db_name}' gerado com {rows} registros!")
 
+
+# Remover banco antigo se existir
+if os.path.exists("databases_mock/secretary_data.db"):
+    os.remove("databases_mock/secretary_data.db")
+
+# Criar novo banco e popular com dados mockados
 create_database()
 secretary_generate_mock()
+
 
 #teste pequeno
 #secretary_generate_mock(50)
