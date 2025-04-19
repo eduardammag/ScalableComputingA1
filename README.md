@@ -10,8 +10,9 @@ Clone o repositório e compile o projeto com `make`:
 
 ```bash
 make
+```
 
-> Requisitos: `g++`, `make`, `sqlite3`, `Python 3.x`
+> Requisitos: `g++`, `make`, `sqlite3`, `Python 3`
 
 ---
 
@@ -82,7 +83,7 @@ O mock em Python gera três tipos de dados:
 O pipeline implementa a lógica Produtor-Consumidor com:
 
 - Fila de arquivos protegida por `mutex`
-- Várias threads de extração executando em paralelo
+- Várias threads de extração, tratamento e carregamento executando em paralelo
 - Comunicação por `condition_variable` entre etapas
 
 O número de threads pode ser ajustado na chamada da função `executarPipeline`.
