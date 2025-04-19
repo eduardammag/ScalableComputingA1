@@ -241,9 +241,16 @@ void executarPipeline(int numConsumidores) {
     // "secretary_data.db"
     vector<string> arquivos = {
         "oms_mock.txt",
-        // "hospital_mock_1.csv",
-        // "hospital_mock_2.csv",
-        // "hospital_mock_3.csv",
+        "hospital_mock_1.csv",
+        "hospital_mock_2.csv",
+        "hospital_mock_3.csv",
+        "hospital_mock_4.csv",
+        "hospital_mock_5.csv",
+        "hospital_mock_6.csv",
+        "hospital_mock_7.csv",
+        "hospital_mock_8.csv",
+        "hospital_mock_9.csv",
+        "hospital_mock_10.csv"
     };
 
     // Variáveis para medição de tempo
@@ -261,7 +268,7 @@ void executarPipeline(int numConsumidores) {
 
     // Cria consumidores do extrator
     vector<thread> consumidoresExtrator;
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < numConsumidores; ++i) {
         consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
     }
     // Aguarda o produtor
