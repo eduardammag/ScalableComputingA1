@@ -6,6 +6,8 @@
 #include <vector>
 #include <variant>
 #include <algorithm>
+#include <cctype>
+#include <unordered_map>
 
 // soma parcial de uma coluna (uma thread processa uma parte da coluna)
 void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, double& sum, mutex& mtx) 
@@ -572,37 +574,423 @@ void Handler::removeSparseColumns(DataFrame& input, double nullThreshold, int nu
 
     input = move(cleaned);
 }
-/*
 
-teste da main
-
-Extrator extrator;
-        DataFrame df_csv = extrator.carregar("hospital_mock_1.csv");
-        // cout << "\nArquivo CSV carregado com sucesso:\n";
-        DataFrame teste = groupedDf(df_csv, "CEP", "Idade",5);
-        // df_csv.display();
-        for (int n = 1; n <= 8; n += 1) {
-                // cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
-                auto inicio = chrono::high_resolution_clock::now();
-        
-                // executarPipeline(n);  // Pipeline com n consumidores
-                teste = groupedDf(df_csv, "CEP", "Idade",n);
-        
-                auto fim = chrono::high_resolution_clock::now();
-                chrono::duration<double> duracao = fim - inicio;
-                teste.display();
-        
-                // cout << "Tempo: " << duracao.count() << " segundos.\n";
-            }
-
-
-// 1. DataCleaner - Remove nulos e duplicatas
-DataFrame DataCleaner::process(const DataFrame& input) {
-    DataFrame output = input;
-    output.removeNulls();
-    output.removeDuplicates();
-    return output;
+// Tratador para validação de dados
+void Handler::validateDataFrame(DataFrame& input, int numThreads)
+{
+    if (input.empty()) return;
+    
+    const int numRows = input.size();
+    vector<bool> validRows(numRows, true);
+    
+    // Analisa as colunas para determinar regras de validação
+    vector<ColumnValidationRules> rules = analyzeColumnsForValidation(input, min(20, numRows));
+    
+    // Valida as linhas em paralelo
+    validateRows(input, rules, validRows, numThreads);
+    
+    // Cria novo DataFrame apenas com linhas válidas
+    createValidatedDataFrame(input, validRows);
 }
+
+vector<Handler::ColumnValidationRules> Handler::analyzeColumnsForValidation(const DataFrame& df, int sampleSize)
+{
+    vector<ColumnValidationRules> rules;
+    const int numCols = df.numCols();
+    const int actualSampleSize = min(sampleSize, df.size());
+    
+    for (int col = 0; col < numCols; ++col)
+    {
+        ColumnValidationRules rule;
+        rule.name = df.getColumnNames()[col];
+        rule.type = df.typeCol(col);
+        
+        analyzeColumnPattern(df, col, actualSampleSize, rule);
+        rules.push_back(rule);
+    }
+    
+    return rules;
+}
+
+void Handler::analyzeColumnPattern(const DataFrame& df, int colIndex, int sampleSize, ColumnValidationRules& rule)
+{
+    set<string> uniqueValues;
+    bool only01 = true;
+    bool onlyTwoDigits = true;
+    bool onlyFiveDigits = true;
+    
+    // Analisa os valores da coluna
+    for (int i = 0; i < sampleSize; ++i)
+    {
+        const Cell& cell = df.getRow(i)[colIndex];
+        string strVal = toString(cell);
+        
+        // Verifica padrões nos valores
+        try
+        {
+            double val = toDouble(cell);
+            if (val != 0 && val != 1) only01 = false;
+            if (strVal.length() != 2) onlyTwoDigits = false;
+            if (strVal.length() != 5) onlyFiveDigits = false;
+        } catch (...)
+        {
+            only01 = false;
+            onlyTwoDigits = false;
+            onlyFiveDigits = false;
+        }
+        
+        if (holds_alternative<string>(cell)) uniqueValues.insert(get<string>(cell));
+    }
+    
+    string lowerName = toLower(rule.name);
+    
+    // Regras para CEPs
+    if (contains(lowerName, "cep"))
+    {
+        if (contains(lowerName, "ilha") || contains(lowerName, "island"))
+        {
+            rule.isIslandCEP = true;
+            rule.minLength = 2;
+            rule.maxLength = 2;
+        } 
+        else if (contains(lowerName, "região") || contains(lowerName, "region") || contains(lowerName, "bairro")) {
+            rule.isRegionCEP = true;
+            rule.minLength = 5;
+            rule.maxLength = 5;
+        }
+        else if (onlyTwoDigits && sampleSize >= 5)
+        {
+            rule.isIslandCEP = true;
+            rule.minLength = 2;
+            rule.maxLength = 2;
+        }
+        else if (onlyFiveDigits && sampleSize >= 5)
+        {
+            rule.isRegionCEP = true;
+            rule.minLength = 5;
+            rule.maxLength = 5;
+        }
+    }
+    
+    // Regras para outros tipos de colunas
+    if (contains(lowerName, "idade") || contains(lowerName, "age"))
+    {
+        rule.allowNegative = false;
+        rule.minValue = 0;
+        rule.maxValue = 120;
+    }
+    else if (contains(lowerName, "óbitos") || contains(lowerName, "death"))
+    {
+        rule.allowNegative = false;
+        rule.minValue = 0;
+    }
+    else if (contains(lowerName, "população") || contains(lowerName, "population"))
+    {
+        rule.allowNegative = false;
+        rule.minValue = 0;
+    }
+    else if (only01 && sampleSize >= 5)
+    {
+        rule.isBoolean = true;
+        rule.allowedStrings = {"0", "1", "false", "true"};
+    }
+}
+
+void Handler::validateRows(DataFrame& input, const vector<ColumnValidationRules>& rules, vector<bool>& validRows, int numThreads)
+{
+    const int numRows = input.size();
+    mutex mtx;
+    
+    int chunkSize = max(numRows / numThreads, 1);
+    vector<thread> threads;
+    
+    for (int t = 0; t < numThreads; ++t)
+    {
+        threads.emplace_back([&, t]()
+        {
+            const int start = t * chunkSize;
+            const int end = (t == numThreads - 1) ? numRows : start + chunkSize;
+            
+            for (int i = start; i < end; ++i)
+            {
+                bool rowValid = true;
+                const auto& row = input.getRow(i);
+                
+                for (size_t col = 0; col < rules.size() && rowValid; ++col)
+                {
+                    if (!isValidCell(row[col], rules[col])) rowValid = false;
+                }
+                
+                if (!rowValid)
+                {
+                    lock_guard<mutex> lock(mtx);
+                    validRows[i] = false;
+                }
+            }
+        });
+    }
+    
+    for (auto& t : threads) t.join();
+}
+
+bool Handler::isValidCell(const Cell& cell, const ColumnValidationRules& rule) 
+{
+    if (isNullCell(cell)) return true;
+    
+    string strVal = toString(cell);
+    
+    // Validação para CEPs
+    if (rule.isIslandCEP || rule.isRegionCEP)
+    {
+        if (int(strVal.length()) != rule.maxLength) return false;
+        if (!all_of(strVal.begin(), strVal.end(), ::isdigit)) return false;
+        return true;
+    }
+    
+    // Validação para booleanos
+    if (rule.isBoolean) return rule.allowedStrings.find(strVal) != rule.allowedStrings.end();
+    
+    // Validação numérica
+    try
+    {
+        double val = toDouble(cell);
+        if (!rule.allowNegative && val < 0) return false;
+        if (val < rule.minValue || val > rule.maxValue) return false;
+    } catch (...)
+    {
+        return false;
+    }
+    
+    return true;
+}
+
+void Handler::createValidatedDataFrame(DataFrame& input, const vector<bool>& validRows)
+{
+    vector<string> colNames = input.getColumnNames();
+    vector<ColumnType> colTypes;
+    for (int i = 0; i < input.numCols(); ++i)
+    {
+        colTypes.push_back(input.typeCol(i));
+    }
+    
+    DataFrame cleaned(colNames, colTypes);
+    for (size_t i = 0; i < validRows.size(); ++i)
+    {
+        if (validRows[i])
+        {
+            cleaned.addRow(input.getRow(i));
+        }
+    }
+    
+    input = move(cleaned);
+}
+
+void Handler::filterInvalidAges(DataFrame& input, const string& ageColumnName, int maxAge, int numThreads)
+{
+    int colIndex = input.colIdx(ageColumnName);
+    if (colIndex == -1) return;
+    
+    const int numRows = input.size();
+    vector<bool> validRows(numRows, true);
+    mutex mtx;
+    
+    int chunkSize = max(numRows / numThreads, 1);
+    vector<thread> threads;
+    
+    for (int t = 0; t < numThreads; ++t)
+    {
+        threads.emplace_back([&, t]() {
+            const int start = t * chunkSize;
+            const int end = (t == numThreads - 1) ? numRows : start + chunkSize;
+            
+            for (int i = start; i < end; ++i)
+            {
+                const Cell& cell = input.getRow(i)[colIndex];
+                
+                try 
+                {
+                    double age = toDouble(cell);
+                    if (age < 0 || age > maxAge)
+                    {
+                        lock_guard<mutex> lock(mtx);
+                        validRows[i] = false;
+                    }
+                } catch (...)
+                {
+                    lock_guard<mutex> lock(mtx);
+                    validRows[i] = false;
+                }
+            }
+        });
+    }
+    
+    for (auto& t : threads) t.join();
+    createValidatedDataFrame(input, validRows);
+}
+
+// Funções auxiliares
+
+string Handler::toLower(const string& s)
+{
+    string result = s;
+    transform(result.begin(), result.end(), result.begin(), [](unsigned char c)
+    {
+        return tolower(c);
+    });
+    return result;
+}
+
+bool Handler::contains(const string& str, const string& substr)
+{
+    return str.find(substr) != string::npos;
+}
+
+// Função auxiliar para extrair o código da ilha (primeiros 2 dígitos)
+string extractIslandCode(const Cell& cepCell)
+{
+    string cepStr;
+    
+    // Converte a célula para string
+    if (holds_alternative<string>(cepCell)) cepStr = get<string>(cepCell);
+    else if (holds_alternative<int>(cepCell)) cepStr = to_string(get<int>(cepCell));
+    else if (holds_alternative<double>(cepCell)) cepStr = to_string(static_cast<int>(get<double>(cepCell)));
+    
+    // Remove caracteres não numéricos
+    cepStr.erase(remove_if(cepStr.begin(), cepStr.end(), [](char c) { return !isdigit(c); }), cepStr.end());
+    
+    // Pega os primeiros 2 dígitos (preenche com zero se necessário)
+    if (cepStr.empty()) return "00";
+    if (cepStr.length() == 1) return "0" + cepStr.substr(0, 1);
+    return cepStr.substr(0, 2);
+}
+
+// Função para fazer merge de dois DataFrames
+DataFrame mergeTwoDataFrames(const DataFrame& df1, const DataFrame& df2, const string& cepColName, const string& suffix1, const string& suffix2)
+{
+    // Encontra o índice da coluna CEP em ambos DataFrames
+    int cepIdx1 = df1.colIdx(cepColName);
+    int cepIdx2 = df2.colIdx(cepColName);
+    
+    if (cepIdx1 == -1 || cepIdx2 == -1)
+    {
+        throw invalid_argument("Coluna CEP não encontrada em um dos DataFrames");
+    }
+
+    // Mapeia códigos de ilha para linhas
+    unordered_map<string, vector<size_t>> islandMap1;
+    unordered_map<string, vector<size_t>> islandMap2;
+
+    // Preenche o primeiro mapa
+    for (int i = 0; i < df1.size(); ++i)
+    {
+        const auto& row = df1.getRow(i);
+        string islandCode = extractIslandCode(row[cepIdx1]);
+        islandMap1[islandCode].push_back(i);
+    }
+
+    // Preenche o segundo mapa
+    for (int i = 0; i < df2.size(); ++i)
+    {
+        const auto& row = df2.getRow(i);
+        string islandCode = extractIslandCode(row[cepIdx2]);
+        islandMap2[islandCode].push_back(i);
+    }
+
+    // Prepara o DataFrame resultante
+    vector<string> newColNames;
+    vector<ColumnType> newColTypes;
+
+    // Adiciona colunas do primeiro DataFrame
+    auto colNames1 = df1.getColumnNames();
+    for (int i = 0; i < df1.numCols(); ++i)
+    {
+        if (colNames1[i] == cepColName)
+        {
+        newColNames.push_back(colNames1[i]);  // sem sufixo
+        } else 
+        {
+        newColNames.push_back(colNames1[i] + suffix1);
+        }
+        newColTypes.push_back(df1.typeCol(i));
+    }
+
+    // Adiciona colunas do segundo DataFrame
+    auto colNames2 = df2.getColumnNames();
+    for (int i = 0; i < df2.numCols(); ++i)
+    {
+        // Não repete a coluna CEP
+        if (colNames2[i] != cepColName)
+        {
+            newColNames.push_back(colNames2[i] + suffix2);
+            newColTypes.push_back(df2.typeCol(i));
+        }
+    }
+
+    DataFrame result(newColNames, newColTypes);
+
+    // Faz o merge
+    for (const auto& pair1 : islandMap1)
+    {
+        const string& islandCode = pair1.first;
+        auto it = islandMap2.find(islandCode);
+        
+        if (it != islandMap2.end())
+        {
+            // Combina todas as linhas com o mesmo código de ilha
+            for (size_t i : pair1.second)
+            {
+                for (size_t j : it->second)
+                {
+                    const auto& row1 = df1.getRow(i);
+                    const auto& row2 = df2.getRow(j);
+                    
+                    vector<Cell> newRow;
+                    // Adiciona todas as células do primeiro DataFrame
+                    newRow.insert(newRow.end(), row1.begin(), row1.end());
+                    
+                    // Adiciona células do segundo DataFrame, exceto a coluna CEP
+                    int cepColIdx = df2.colIdx(cepColName);
+                    for (size_t k = 0; k < row2.size(); ++k)
+                    {
+                        if (k != static_cast<size_t>(cepColIdx))
+                        {
+                            newRow.push_back(row2[k]);
+                        }
+                    }
+                    
+                    result.addRow(newRow);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+map<string, DataFrame> Handler::mergeByCEP(const DataFrame& dfA, const DataFrame& dfB, const DataFrame& dfC, const string& cepColName)
+{
+    map<string, DataFrame> results;
+
+    // Verifica se a coluna CEP existe em todos os DataFrames
+    if (int(dfA.colIdx(cepColName)) == -1 || int(dfB.colIdx(cepColName)) == -1 || int(dfC.colIdx(cepColName)) == -1)
+    {
+        throw invalid_argument("Coluna CEP não encontrada em um dos DataFrames");
+    }
+
+    // Merge dos três DataFrames
+    DataFrame mergeAB = mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B");
+    DataFrame mergeABC = mergeTwoDataFrames(mergeAB, dfC, cepColName, "", "_C");
+    results.insert({"ABC", mergeABC});
+
+    // Todas as permutações dois a dois
+    results.insert({"AB", mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B")});
+    results.insert({"AC", mergeTwoDataFrames(dfA, dfC, cepColName, "_A", "_C")});
+    results.insert({"BC", mergeTwoDataFrames(dfB, dfC, cepColName, "_B", "_C")});
+
+    return results;
+}
+
+/*
 
 // 2. OutlierDetector - Detecta valores anômalos
 DataFrame OutlierDetector::process(const DataFrame& input) {

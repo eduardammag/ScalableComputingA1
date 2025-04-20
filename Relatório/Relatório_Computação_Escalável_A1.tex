@@ -130,12 +130,24 @@ Este relatório apresenta o desenvolvimento de um Micro-Framework voltado à con
     \label{fig:minha_imagem}
 \end{figure}
 
+A modelagem, representada no fluxograma, é feita de um pipeline de processamento de dados baseado em um fluxo ETL (Extract, Transform, Load), acionado por diferentes triggers, organizado em etapas independentes, que se comunicam por meio de filas. O processo se inicia por um módulo mock que simula a chegada de dados reais de fontes distintas. Esses dados são armazenados em arquivos e enviados para a primeira etapa do pipeline.
+
+Quando o pipeline é ativado por um dos triggers, os arquivos são encaminhados para o extrator, que é responsável por identificar o tipo de arquivo e padronizar os dados extraídos em uma estrutura de dataframe. Esse processo garante que, independentemente do formato de origem, todos os dados estejam organizados de maneira uniforme para as próximas etapas do pipeline.
+
+Após a extração, os dados passam por uma cadeia de tratadores gerais, que realizam limpezas e filtragens padronizadas, T1, T2, e T3 - geral.
+
+Na sequência, os dados seguem para tratadores específicos, que aplicam transformações mais contextualizadas. O T1 - específico concatena diferentes DataFrames, unificando tabelas com a mesma estrutura. O T2 - específico realiza agrupamentos por colunas de interesse (como CEP ou hospital), preparando os dados para análises agregadas. Por fim, o T3 - específico calcula médias e outras estatísticas relevantes, oferecendo uma visão resumida dos dados processados.
+
+Após o tratamento, os dados são encaminhados para o Loader, responsável por carregá-los em arquivos csv's. Isso garante que os dados tratados fiquem disponíveis para consultas futuras e possam ser utilizados por módulos de visualização. Por fim, o componente Display consome essas informações armazenadas e as exibe relatórios semanais, fechando o ciclo do pipeline. 
+
 \section{Mock}
 
-Nossas fontes de dados serão simulações de hospitais, da Secretaria de Saúde (SS) e da Organização Mundial da Saúde (OMS). Receberemos um conjunto de dados advindos de pelo menos uma dessas entidades toda semana. Além disso, temos dois tipos de segmentação regional: Ilhas, mais geral, e regiões, que são segmentações das ilhas, mais especifíco. A simulação apresenta 20 ilhas, cada uma identificada por um CEP de 2 dígitos, cada ilha tem 5 regiões, com CEPs de 5 dígitos, sendo os dois primeiros dígitos o CEP da ilha (ex: ilha 12 $\rightarrow$ regiões 12001 a 12005).
+As fontes de dados serão simulações de hospitais,  Secretaria de Saúde (SS) e Organização Mundial da Saúde (OMS). Receberemos conjuntos de dados advindos dessas fontes semanalmente. Além disso, temos dois tipos de segmentação regional: Ilhas, mais geral, e regiões, que são segmentações das ilhas, mais especifíco. A simulação apresenta 20 ilhas, cada uma identificada por um CEP de 2 dígitos, cada ilha tem 5 regiões, com CEPs de 5 dígitos, sendo os dois primeiros dígitos o CEP da ilha (ex: ilha 12 $\rightarrow$ regiões 12001 a 12005).
+
 
 O objeto Mock é feito em python e implementa a criação de três tipos de tabelas diferes: SQLite, csv e txt.
 \vspace{0.5cm}
+
 \textbf{Fontes e dados gerados}
 
 \begin{itemize}
@@ -163,19 +175,19 @@ O objeto Mock é feito em python e implementa a criação de três tipos de tabe
 O framework apresenta dois tipos de Triggers responsáveis por iniciar a execução de um pipeline:
 
 \begin{itemize}
-    \item \textbf{TimerTrigger}: A cada X milissegundos dispara uma nova execução.
+    \item \textbf{TimerTrigger}: A cada X segundos dispara uma nova execução.
     \item \textbf{RequestTrigger}: A cada chamada de função (simulando uma requisição de rede) dispara uma nova
 execução.
 \end{itemize}
 
 \section{Extrator}
 
-O  extrator, implementado em C++, usa a classe \texttt{DataFrame} que organiza os dados gerados pelo mock em uma estrutura tabular com colunas bem definidas e suporte a diferentes tipos de dados (inteiros, reais e strings). Ele permite:
+O  extrator, implementado em C++, usa a classe \texttt{DataFrame} que organiza os dados gerados pelo mock em uma estrutura tabular com colunas bem definidas e suporta os diferentes tipos de dados (inteiros, reais e strings). Ele permite:
 
 \begin{itemize}
     \item \textbf{Validar os dados inseridos:} garante que cada valor esteja no formato correto (ex: inteiros em colunas inteiras).
     
-    \item \textbf{Adicionar ou remover linhas e colunas:} facilita manipulações e atualizações nos dados carregados.
+    \item \textbf{Adicionar ou remover linhas e colunas:} facilita manipulações e filtragens nos dados carregados.
     
     \item \textbf{Visualizar os dados em forma de tabela:} com o método \texttt{display}, os dados são impressos com cabeçalho e valores formatados.
     
@@ -191,7 +203,7 @@ O  extrator, implementado em C++, usa a classe \texttt{DataFrame} que organiza o
 \\
 O extrator identifica o tipo de arquivo da tabela em questão por meio da extensão pós ponto (.csv,.txt ou .db) e, com isso, chama a respectiva função de extração para esse tipo de dado, tornando os diferentes tipos de tabelas padronizadas para o uso dos tratadores.\\
 \\
-Quando os dados da OMS (arquivo \texttt{.txt}) ou do hospital (arquivos \texttt{.csv}) são carregados, o \texttt{DataFrame} pode ser inicializado com os nomes das colunas e seus tipos, e cada linha é validada antes de ser inserida.
+Quando os dados da OMS (arquivo \texttt{.txt}) ou dos hospitais (arquivos \texttt{.csv}) são carregados, o \texttt{DataFrame} pode ser inicializado com os nomes das colunas e seus tipos, e cada linha é validada antes de ser inserida.
 \\
 \\
 O extrator também pode ser usado para representar tabelas extraídas do banco de dados SQLite da Secretaria de Saúde (por exemplo, a tabela \texttt{pacientes}).
@@ -238,12 +250,12 @@ De maneira geral, o paralelismo no pipeline se dá pela lógica de Produtor-Cons
 
 
 \subsection*{Extração}
-O paralelismo na Extração dos arquivos gerados pelo mock no pipeline é implementado com base no modelo produtor-consumidor utilizando threads, filas protegidas por mutex, e variáveis de condição para sincronização.
+O paralelismo na extração dos arquivos gerados pelo mock no pipeline é implementado com base no modelo produtor-consumidor utilizando threads, filas protegidas por mutex, e variáveis de condição para sincronização.
 
 \begin{itemize}
     \item Produtor coloca arquivos na fila (filaArquivos).
 
-    \item  Múltiplos consumidores-extratores (threads) consomem essa fila paralelamente.
+    \item  Múltiplos consumidores-extratores (threads) consomem essa fila paralelamente (o número de consumidores é um argumento da função pipeline, definido como preferível).
 
     \item  Cada consumidor-extrator:
     \begin{itemize}
@@ -258,12 +270,87 @@ Múltiplas threads \texttt{consumidorExtrator} são criadas (na função \texttt
 
 Cada thread opera de forma independente, competindo por arquivos na fila \texttt{filaArquivos}, gerando uma condição de corrida, corrigida por uma proteção da fila com mutex.
  
-Isso permite que vários arquivos sejam processados \textbf{simultaneamente} por diferentes núcleos da CPU.
+Isso permite que vários arquivos sejam processados \textbf{simultaneamente} por diferentes núcleos da CPU e haja um balanceamento de carga.
+\\
+\subsubsection*{Pontos fortes da abordagem}
+\\
+\begin{itemize}
+    \item \textbf{Escalabilidade com threads:} permite processar múltiplos arquivos simultaneamente, aproveitando melhor os múltiplos núcleos da CPU, o que acelera a etapa de extração.
+
+    \item \textbf{Balanceamento automático de carga:} como os consumidores competem por arquivos na fila, a distribuição é feita de forma natural e eficiente, sem divisão manual de tarefas.
+
+    \item \textbf{Desacoplamento entre etapas:} o uso de filas entre as fases (extração, tratamento e carregamento) permite que cada parte do pipeline opere de forma independente, evitando gargalos.
+
+    \item \textbf{Modelo confiável:} o padrão produtor-consumidor com mutex e variáveis de condição é amplamente utilizado e considerado seguro para aplicações concorrentes.
+
+    \item \textbf{Paralelismo configurável:} o número de consumidores pode ser definido por parâmetro na execução, facilitando testes e adaptações ao ambiente de hardware.
+
+    \item \textbf{Sincronização segura:} uso correto de \texttt{mutex} e \texttt{condition\_variable} impede condições de corrida no acesso às filas compartilhadas.
+\end{itemize}
+
+\vspace{1em}
+
+\\
+\subsubsection*{Pontos fracos da abordagem}
+
+\begin{itemize}
+    \item \textbf{Overhead de gerenciamento de threads:} quando há muitos arquivos pequenos, o custo de criação e sincronização de threads pode superar os ganhos do paralelismo.
+
+    \item \textbf{Ausência de priorização de arquivos:} a fila segue uma lógica FIFO simples, não considerando arquivos urgentes ou mais pesados que poderiam ser tratados primeiro.
+
+    \item \textbf{Fila sem limite de tamanho:} caso a leitura seja muito mais rápida que o tratamento, a fila intermediária pode crescer indefinidamente e consumir muita memória.
+
+    \item \textbf{Threads ociosas em cenários com poucos arquivos:} se a carga for baixa, as threads de extração encerram rapidamente e não são reaproveitadas.
+
+    \item \textbf{Bloqueio com variáveis de condição:} consumidores ficam bloqueados esperando arquivos, o que pode causar ineficiência em cenários com picos esparsos de chegada de dados.
+
+\end{itemize}
 
 \subsection*{Tratamento}
+\\
+
+
+
+\subsubsection*{Pontos fracos da abordagem}
+\\
+\begin{itemize}
+    \item \textbf{} 
+    
+\end{itemize}
+
+\vspace{1em}
+
+\\
+\subsubsection*{Pontos fracos da abordagem}
+
+\begin{itemize}
+    \item \textbf{} 
+
+\end{itemize}
 
 
 \subsection*{Loader}
+\\
+
+
+
+\subsubsection*{Pontos fracos da abordagem}
+\\
+\begin{itemize}
+    \item \textbf{} 
+    
+\end{itemize}
+
+\vspace{1em}
+
+\\
+\subsubsection*{Pontos fracos da abordagem}
+
+\begin{itemize}
+    \item \textbf{} 
+
+\end{itemize}
+
 
 
 \subsection*{Dashboard}

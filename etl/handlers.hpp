@@ -1,10 +1,16 @@
 #ifndef HANDLERS_HPP
 #define HANDLERS_HPP
 
+#include <vector>
+#include <string>
+#include <set>
+#include <limits>
 #include <thread>
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
+#include <map>
 #include "dataframe.hpp"
 
 using namespace std;
@@ -19,12 +25,35 @@ public:
     DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
 
     // Handler para limpeza de dados - remove duplicatas e linhas/colunas com muitos valores nulos
-    void dataCleaner(DataFrame& input, int numThreads);
+    void dataCleaner(DataFrame&, int);
 
     // Função auxiliar para verificar se uma célula é nula
-    bool isNullCell(const Cell& cell);
+    bool isNullCell(const Cell&);
+
+    // Handler para validar dados
+    void validateDataFrame(DataFrame&, int);
+
+    // Handler para merge de 3 DataFrames por CEP
+    static map<string, DataFrame> mergeByCEP(const DataFrame&, const DataFrame&, const DataFrame&, const string&);
 
 private:
+    // Estrutura para regras de validação
+    struct ColumnValidationRules {
+        std::string name;
+        ColumnType type;
+        bool allowNegative = true;
+        double minValue = -std::numeric_limits<double>::max();
+        double maxValue = std::numeric_limits<double>::max();
+        int maxLength = std::numeric_limits<int>::max();
+        int minLength = 0;
+        std::set<std::string> allowedStrings;
+        bool isBoolean = false;
+        bool isID = false;
+        bool isDate = false;
+        bool isIslandCEP = false;
+        bool isRegionCEP = false;
+    };
+    
     // funções para paralelização
 
     // soma parcial para calcular a média
@@ -45,50 +74,25 @@ private:
         const std::vector<Cell>&, mutex&, std::unordered_map<std::string, double>&);
     
     // Função auxiliar para remover linhas duplicadas
-    void removeDuplicateRows(DataFrame& input, int numThreads);
+    void removeDuplicateRows(DataFrame&, int);
 
     // Função auxiliar para remover linhas com muitos valores nulos
-    void removeSparseRows(DataFrame& input, double nullThreshold, int numThreads);
+    void removeSparseRows(DataFrame&, double, int);
 
     // Função auxiliar para remover colunas com muitos valores nulos
-    void removeSparseColumns(DataFrame& input, double nullThreshold, int numThreads);
+    void removeSparseColumns(DataFrame&, double, int);
+
+    // Métodos auxiliares para validação
+    vector<ColumnValidationRules> analyzeColumnsForValidation(const DataFrame&, int);
+    void analyzeColumnPattern(const DataFrame&, int, int, ColumnValidationRules&);
+    void validateRows(DataFrame&, const vector<ColumnValidationRules>&, vector<bool>&, int);
+    bool isValidCell(const Cell&, const ColumnValidationRules&);
+    void createValidatedDataFrame(DataFrame&, const vector<bool>&);
+    void filterInvalidAges(DataFrame&, const string&, int, int);
+
+    // Funções auxiliares genéricas
+    string toLower(const string&);
+    bool contains(const string&, const string&);
 };
-
-
-// funções para paralelização
-
-// DataFrame groupRegions(const DataFrame& , const string& , const string& ) ;
-/*
-// 1. Tratador de Limpeza de Dados
-class DataCleaner : public Handler {
-public:
-    DataFrame process(const DataFrame& input) override;
-};
-
-// 2. Tratador de Detecção de Outliers
-class OutlierDetector : public Handler {
-public:
-    DataFrame process(const DataFrame& input) override;
-};
-
-// 3. Tratador de Agregação Temporal
-class TimeAggregator : public Handler {
-public:
-    DataFrame process(const DataFrame& input) override;
-};
-
-// 4. Tratador de Correlação Epidemiológica
-class EpidemiologyAnalyzer : public Handler {
-public:
-    DataFrame process(const DataFrame& input) override;
-};
-
-// 5. Tratador de Geração de Alertas
-class AlertGenerator : public Handler {
-public:
-    DataFrame process(const DataFrame& input) override;
-};
-
-*/
 
 #endif // HANDLERS_HPP
