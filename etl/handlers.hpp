@@ -9,6 +9,8 @@
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
+#include <map>
 #include "dataframe.hpp"
 
 using namespace std;
@@ -30,6 +32,9 @@ public:
 
     // Handler para validar dados
     void validateDataFrame(DataFrame&, int);
+
+    // Handler para merge de 3 DataFrames por CEP
+    static map<string, DataFrame> mergeByCEP(const DataFrame&, const DataFrame&, const DataFrame&, const string&);
 
 private:
     // Estrutura para regras de validação

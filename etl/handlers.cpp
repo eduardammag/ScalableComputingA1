@@ -834,6 +834,154 @@ bool Handler::contains(const string& str, const string& substr)
     return str.find(substr) != string::npos;
 }
 
+// Função auxiliar para extrair o código da ilha (primeiros 2 dígitos)
+string extractIslandCode(const Cell& cepCell)
+{
+    string cepStr;
+    
+    // Converte a célula para string
+    if (holds_alternative<string>(cepCell)) cepStr = get<string>(cepCell);
+    else if (holds_alternative<int>(cepCell)) cepStr = to_string(get<int>(cepCell));
+    else if (holds_alternative<double>(cepCell)) cepStr = to_string(static_cast<int>(get<double>(cepCell)));
+    
+    // Remove caracteres não numéricos
+    cepStr.erase(remove_if(cepStr.begin(), cepStr.end(), [](char c) { return !isdigit(c); }), cepStr.end());
+    
+    // Pega os primeiros 2 dígitos (preenche com zero se necessário)
+    if (cepStr.empty()) return "00";
+    if (cepStr.length() == 1) return "0" + cepStr.substr(0, 1);
+    return cepStr.substr(0, 2);
+}
+
+// Função para fazer merge de dois DataFrames
+DataFrame mergeTwoDataFrames(const DataFrame& df1, const DataFrame& df2, const string& cepColName, const string& suffix1, const string& suffix2)
+{
+    // Encontra o índice da coluna CEP em ambos DataFrames
+    int cepIdx1 = df1.colIdx(cepColName);
+    int cepIdx2 = df2.colIdx(cepColName);
+    
+    if (cepIdx1 == -1 || cepIdx2 == -1)
+    {
+        throw invalid_argument("Coluna CEP não encontrada em um dos DataFrames");
+    }
+
+    // Mapeia códigos de ilha para linhas
+    unordered_map<string, vector<size_t>> islandMap1;
+    unordered_map<string, vector<size_t>> islandMap2;
+
+    // Preenche o primeiro mapa
+    for (int i = 0; i < df1.size(); ++i)
+    {
+        const auto& row = df1.getRow(i);
+        string islandCode = extractIslandCode(row[cepIdx1]);
+        islandMap1[islandCode].push_back(i);
+    }
+
+    // Preenche o segundo mapa
+    for (int i = 0; i < df2.size(); ++i)
+    {
+        const auto& row = df2.getRow(i);
+        string islandCode = extractIslandCode(row[cepIdx2]);
+        islandMap2[islandCode].push_back(i);
+    }
+
+    // Prepara o DataFrame resultante
+    vector<string> newColNames;
+    vector<ColumnType> newColTypes;
+
+    // Adiciona colunas do primeiro DataFrame
+    auto colNames1 = df1.getColumnNames();
+    for (int i = 0; i < df1.numCols(); ++i)
+    {
+        if (colNames1[i] == cepColName)
+        {
+        newColNames.push_back(colNames1[i]);  // sem sufixo
+        } else 
+        {
+        newColNames.push_back(colNames1[i] + suffix1);
+        }
+        newColTypes.push_back(df1.typeCol(i));
+    }
+
+    // Adiciona colunas do segundo DataFrame
+    auto colNames2 = df2.getColumnNames();
+    for (int i = 0; i < df2.numCols(); ++i)
+    {
+        // Não repete a coluna CEP
+        if (colNames2[i] != cepColName)
+        {
+            newColNames.push_back(colNames2[i] + suffix2);
+            newColTypes.push_back(df2.typeCol(i));
+        }
+    }
+
+    DataFrame result(newColNames, newColTypes);
+
+    // Faz o merge
+    for (const auto& pair1 : islandMap1)
+    {
+        const string& islandCode = pair1.first;
+        auto it = islandMap2.find(islandCode);
+        
+        if (it != islandMap2.end())
+        {
+            // Combina todas as linhas com o mesmo código de ilha
+            for (size_t i : pair1.second)
+            {
+                for (size_t j : it->second)
+                {
+                    const auto& row1 = df1.getRow(i);
+                    const auto& row2 = df2.getRow(j);
+                    
+                    vector<Cell> newRow;
+                    // Adiciona todas as células do primeiro DataFrame
+                    newRow.insert(newRow.end(), row1.begin(), row1.end());
+                    
+                    // Adiciona células do segundo DataFrame, exceto a coluna CEP
+                    int cepColIdx = df2.colIdx(cepColName);
+                    for (size_t k = 0; k < row2.size(); ++k)
+                    {
+                        if (k != static_cast<size_t>(cepColIdx))
+                        {
+                            newRow.push_back(row2[k]);
+                        }
+                    }
+                    
+                    result.addRow(newRow);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+map<string, DataFrame> Handler::mergeByCEP(const DataFrame& dfA, const DataFrame& dfB, const DataFrame& dfC, const string& cepColName)
+{
+    map<string, DataFrame> results;
+
+    // Verifica se a coluna CEP existe em todos os DataFrames
+    if (int(dfA.colIdx(cepColName)) == -1 || int(dfB.colIdx(cepColName)) == -1 || int(dfC.colIdx(cepColName)) == -1)
+    {
+        throw invalid_argument("Coluna CEP não encontrada em um dos DataFrames");
+    }
+
+    // Merge dos três DataFrames
+    DataFrame mergeAB = mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B");
+    DataFrame mergeABC = mergeTwoDataFrames(mergeAB, dfC, cepColName, "", "_C");
+    results.insert({"ABC", mergeABC});
+
+    // Todas as permutações dois a dois
+    results.insert({"AB", mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B")});
+    results.insert({"AC", mergeTwoDataFrames(dfA, dfC, cepColName, "_A", "_C")});
+    results.insert({"BA", mergeTwoDataFrames(dfB, dfA, cepColName, "_B", "_A")});
+    results.insert({"BC", mergeTwoDataFrames(dfB, dfC, cepColName, "_B", "_C")});
+    results.insert({"CA", mergeTwoDataFrames(dfC, dfA, cepColName, "_C", "_A")});
+    results.insert({"CB", mergeTwoDataFrames(dfC, dfB, cepColName, "_C", "_B")});
+
+    return results;
+}
+
 /*
 
 // 2. OutlierDetector - Detecta valores anômalos
