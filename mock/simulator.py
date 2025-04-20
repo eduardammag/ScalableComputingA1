@@ -97,7 +97,7 @@ def hospital_generate_mock(rows=100, output_file="databases_mock/hospital_mock.c
         for _ in range(rows):
             id_hospital = random.randint(1, 5)  # ID de 1 a 5
             data = (start_date + timedelta(days=random.randint(0, 6))).strftime("%d-%m-%Y")
-            internado = random.choice([True, False])
+            internado = random.choice([0, 1])
             idade = random.randint(0, 100)
             sexo = random.choice([0, 1]) # 1 = Feminino, 0 = Masculino
             cep = random.choice(cep_regioes)  # Escolhe aleatoriamente uma das 5 regiões, já que temos dados de uma só ilha em cada tabela

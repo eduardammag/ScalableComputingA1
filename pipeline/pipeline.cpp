@@ -21,7 +21,7 @@ condition_variable condVar;
 atomic<bool> encerrado(false);
 
 // Fila compartilhada entre extrator(produtor) e tratador(consumidor)
-queue<DataFrame> extratorTratadorFila;
+queue<pair<string, DataFrame>> extratorTratadorFila;
 mutex extTratMutex;
 condition_variable extTratcondVar;
 atomic<bool> extTratencerrado(false);
@@ -88,9 +88,13 @@ void consumidorExtrator(int id) {
 
 
             //e joga na fila para os tratadores
+            // {
+            //     unique_lock<mutex> lock(extTratMutex);
+            //     extratorTratadorFila.push(move(df));
+            // }
             {
                 unique_lock<mutex> lock(extTratMutex);
-                extratorTratadorFila.push(move(df));
+                extratorTratadorFila.push({arquivo, move(df)});
             }
             // avisa os tratadores
             extTratcondVar.notify_one();
@@ -102,15 +106,17 @@ void consumidorExtrator(int id) {
 }
 
 // CONSUMIDOR TRATADOR: consome da fila extraída e joga para o tratador
-void consumidorTrat(int id, string nomeCol, int numThreads) 
+void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  int numThreads) 
 {
-    Handler handler;
+    int count = 0;
 
     while (true) {
         // df dummy só para inicializar o objeto
         DataFrame dfExtraido({"ID"}, {});
+        DataFrame grouping({"ID"}, {});
 
-        // esprando até ter pelo menos um elemento na fila ou o produtor terminar
+        pair<string, DataFrame> item("hospital", DataFrame({"ID"}, {}));
+
         {
             unique_lock<mutex> lock(extTratMutex);
             extTratcondVar.wait(lock, [] {
@@ -121,49 +127,63 @@ void consumidorTrat(int id, string nomeCol, int numThreads)
                 break;
 
             if (!extratorTratadorFila.empty()) {
-                dfExtraido = extratorTratadorFila.front();
+                item = extratorTratadorFila.front();
                 extratorTratadorFila.pop();
             } else {
                 continue;
             }
         }
 
-        try {
-            // processando o dataframe extraído
+        string origem = item.first;
+        dfExtraido = item.second;
 
-            // cout << "Quantidade de threads" << numThreads << endl;
-            auto startCall = chrono::high_resolution_clock::now();
-            handler.meanAlert(dfExtraido, nomeCol, numThreads);
-            auto endCall = chrono::high_resolution_clock::now();
-            chrono::duration<double> durFunc = endCall - startCall;
-            // cout << "[consumidorTrat] Tempo função: " << durFunc.count() << " s\n";
-            if (dfExtraido.empty()) {
-                cerr << "[Tratador " << id << "] DataFrame TRATADO está vazio!\n";
-            } else {
-                // cout<< "[Tratador " << id << "] Tratamento completo. Linhas: " << tratado.size() 
-                    // << ", Colunas: " << tratado.numCols() << "\n";
-                // tratado.display();
+        Handler handler;
+
+        auto startCall = chrono::high_resolution_clock::now();
+            
+            if (origem.find("hospital") != string::npos) 
+            {
+                grouping = handler.groupedDf(dfExtraido, groupedCol, aggCol, numThreads);
+                
+                LoaderItem l_item{
+                    
+                    std::move(grouping),
+                    "saida_tratada_hospital" + to_string(count++) + ".csv", id
+            };
+            
+            {
+                lock_guard<mutex> lock(tratLoadMutex);
+                tratadorLoaderFila.push(move(l_item));
             }
+            tratLoadCondVar.notify_one();
+        } 
+        else if (origem.find("oms") != string::npos) 
 
+        {
+            handler.meanAlert(dfExtraido, meanCol, numThreads); 
 
-            LoaderItem item{
+            LoaderItem l_item{
+
                 std::move(dfExtraido),
-                "saida_tratada_" + to_string(id) + ".csv",
+                "saida_tratada_oms" + to_string(count++) + ".csv",
                 id
             };
 
             {
                 lock_guard<mutex> lock(tratLoadMutex);
-                tratadorLoaderFila.push(move(item));
+                tratadorLoaderFila.push(move(l_item));
             }
             tratLoadCondVar.notify_one();
-
-        } catch (const exception& e) {
-            cerr << "[Erro Consumidor " << id << "] ao processar " << e.what() << endl;
+        } 
+        else 
+        {
+            cerr << "[Tratador " << id << "] Origem desconhecida: " << origem << endl;
+            continue;
         }
-    }
 
-    // cout<< "[Consumidor Tratador " << id << "] Encerrando.\n";
+        auto endCall = chrono::high_resolution_clock::now();
+        chrono::duration<double> durFunc = endCall - startCall;        
+    }
 }
 
 
@@ -227,7 +247,7 @@ void executarPipeline(int numConsumidores) {
     // entre extrator e tratador
     {
         lock_guard<mutex> lock(extTratMutex);
-        queue<DataFrame> empty;
+        queue<pair<string, DataFrame>> empty;
         swap(extratorTratadorFila, empty);
     }
 
@@ -240,7 +260,7 @@ void executarPipeline(int numConsumidores) {
 
     // "secretary_data.db"
     vector<string> arquivos = {
-        "databases_mock/secretary_data.db",
+        // "databases_mock/secretary_data.db",
         "databases_mock/oms_mock.txt",
         "databases_mock/hospital_mock_1.csv",
         "databases_mock/hospital_mock_2.csv",
@@ -293,8 +313,11 @@ void executarPipeline(int numConsumidores) {
 
     // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
-    for (int i = 0; i < numConsumidores; ++i) {
-        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
+    for (int i = 0; i < numConsumidores; ++i) 
+    {
+        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", "ID_Hospital", "Internado", numConsumidores);
+
+        // consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
     }
 
     // Aguarda tratadores
