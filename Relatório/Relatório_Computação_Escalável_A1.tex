@@ -125,7 +125,7 @@ Este relatório apresenta o desenvolvimento de um Micro-Framework voltado à con
 
 \begin{figure}[H]
     \hspace{-1cm}
-    \includegraphics[width=1.15\linewidth]{Fluxograma.jpeg}
+    \includegraphics[width=1.15\linewidth]{_Fluxograma(atualizado).png}
     \caption{Fluxograma do framework}
     \label{fig:minha_imagem}
 \end{figure}
@@ -134,9 +134,9 @@ A modelagem, representada no fluxograma, é feita de um pipeline de processament
 
 Quando o pipeline é ativado por um dos triggers, os arquivos são encaminhados para o extrator, que é responsável por identificar o tipo de arquivo e padronizar os dados extraídos em uma estrutura de dataframe. Esse processo garante que, independentemente do formato de origem, todos os dados estejam organizados de maneira uniforme para as próximas etapas do pipeline.
 
-Após a extração, os dados passam por uma cadeia de tratadores gerais, que realizam limpezas e filtragens padronizadas, T1, T2, e T3 - geral.
+Após a extração, os dados passam por uma cadeia de tratadores gerais, que realizam limpezas e filtragens padronizadas, T1, T2 - geral.
 
-Na sequência, os dados seguem para tratadores específicos, que aplicam transformações mais contextualizadas. O T1 - específico concatena diferentes DataFrames, unificando tabelas com a mesma estrutura. O T2 - específico realiza agrupamentos por colunas de interesse (como CEP ou hospital), preparando os dados para análises agregadas. Por fim, o T3 - específico calcula médias e outras estatísticas relevantes, oferecendo uma visão resumida dos dados processados.
+Na sequência, os dados seguem para tratadores específicos, que aplicam transformações mais contextualizadas. O T3 - específico concatena diferentes DataFrames, unificando tabelas com a mesma estrutura. O T4 - específico realiza agrupamentos por colunas de interesse (como CEP ou hospital), preparando os dados para análises agregadas. Por fim, o T5 - específico calcula médias e emite um alerta, oferecendo uma visão resumida dos dados processados.
 
 Após o tratamento, os dados são encaminhados para o Loader, responsável por carregá-los em arquivos csv's. Isso garante que os dados tratados fiquem disponíveis para consultas futuras e possam ser utilizados por módulos de visualização. Por fim, o componente Display consome essas informações armazenadas e as exibe relatórios semanais, fechando o ciclo do pipeline. 
 
