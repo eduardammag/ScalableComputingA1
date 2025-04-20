@@ -974,10 +974,7 @@ map<string, DataFrame> Handler::mergeByCEP(const DataFrame& dfA, const DataFrame
     // Todas as permutações dois a dois
     results.insert({"AB", mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B")});
     results.insert({"AC", mergeTwoDataFrames(dfA, dfC, cepColName, "_A", "_C")});
-    results.insert({"BA", mergeTwoDataFrames(dfB, dfA, cepColName, "_B", "_A")});
     results.insert({"BC", mergeTwoDataFrames(dfB, dfC, cepColName, "_B", "_C")});
-    results.insert({"CA", mergeTwoDataFrames(dfC, dfA, cepColName, "_C", "_A")});
-    results.insert({"CB", mergeTwoDataFrames(dfC, dfB, cepColName, "_C", "_B")});
 
     return results;
 }
