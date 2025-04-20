@@ -22,6 +22,7 @@ inline double toDouble(const Cell& cell)
         if constexpr (is_same_v<T, int> || is_same_v<T, double>) 
             return static_cast<double>(arg);
         else
+            // cout << arg << endl;
             throw invalid_argument("Valor não numérico em toDouble.");
     }, cell);
 }

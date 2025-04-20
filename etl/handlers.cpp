@@ -160,6 +160,8 @@ void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads)
     
     for (auto& t : threads) t.join();
 
+    input.addColumn("Alertas", ColumnType::STRING, alertas, numThreads);
+
 }
 
 
@@ -230,7 +232,6 @@ void Handler::agregarGrupoPar(const vector<Cell>& uniqueGroups,
     }
 }
 
-// faz o agrupamento e a agregação de duas colunas
 DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, const string& aggCol, int numThreads) 
 {
     const int colIdxGroup = input.colIdx(groupedCol);
@@ -260,9 +261,15 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
                 const Cell& aggCell = row[colIdxAgg];
 
                 int groupKey;
-                if (holds_alternative<int>(groupCell)) groupKey = stoi(get<string>(groupCell));
-                else if (holds_alternative<double>(groupCell)) groupKey = static_cast<int>(get<double>(groupCell));
-                else groupKey = stoi(get<string>(groupCell));
+                if (holds_alternative<int>(groupCell)) {
+                    groupKey = get<int>(groupCell);
+                } else if (holds_alternative<double>(groupCell)) {
+                    groupKey = static_cast<int>(get<double>(groupCell));
+                } else if (holds_alternative<string>(groupCell)) {
+                    groupKey = stoi(get<string>(groupCell));
+                } else {
+                    throw runtime_error("Tipo inválido em coluna de agrupamento.");
+                }
 
                 groupKeys[i] = groupKey;
                 aggValues[i] = toDouble(aggCell);
@@ -276,6 +283,8 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
     // Fase 2: Agregação paralela
     vector<unordered_map<int, double>> partialSums(numThreads);
     
+    std::mutex sumMutex;
+
     for (int t = 0; t < numThreads; ++t)
     {
         threads.emplace_back([&, t]()
@@ -303,15 +312,17 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
 
     //Construindo o DataFrame de saída
     DataFrame output({groupedCol, "Total_" + aggCol}, { ColumnType::STRING, ColumnType::DOUBLE});
+    std::mutex outputMutex;
 
     for (const auto& [key, sum] : totalSums) 
     {
-        output.addRow({to_string(key), to_string(sum)});
+        std::lock_guard<std::mutex> lock(outputMutex);
+        output.addRow({to_string(key), sum});
     }
-    
-    // cout << "DataFrame agrupado criado" << endl;
+
     return output;
 }
+
 
 // Handler para limpeza de dados - remove duplicatas e linhas/colunas com muitos valores nulos
 void Handler::dataCleaner(DataFrame& input, int numThreads)
