@@ -81,7 +81,7 @@ def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databa
 
             file.write(f"{num_obitos}\t{populacao}\t{cep_ilha}\t{num_recuperados}\t{num_vacinados}\t{data}\n")
 
-    print(f"Arquivo TXT gerado: {output_file}")
+    # print(f"Arquivo TXT gerado: {output_file}")
 
 oms_generate_mock()
 
@@ -111,7 +111,7 @@ def hospital_generate_mock(rows=100, output_file="databases_mock/hospital_mock.c
             
             writer.writerow([id_hospital, data, internado, idade, sexo, cep] + sintomas)
 
-    print(f"Arquivo CSV atualizado: {output_file}")
+    # print(f"Arquivo CSV atualizado: {output_file}")
 
 def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas=150):
     for i in range(1, qtde_arquivos + 1):
@@ -119,7 +119,7 @@ def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas
         nome_arquivo = f"databases_mock/hospital_mock_{i}.csv"
         hospital_generate_mock(rows=num_linhas, output_file=nome_arquivo)
 
-    print(f"\n{qtde_arquivos} arquivos hospitalares gerados com números de linhas aleatórios entre {min_linhas} e {max_linhas}.")
+    # print(f"\n{qtde_arquivos} arquivos hospitalares gerados com números de linhas aleatórios entre {min_linhas} e {max_linhas}.")
 
 
 # hospital_generate_mock(100)
@@ -173,7 +173,7 @@ def secretary_generate_mock(rows=random.randint(500_000, 600_000), db_name="data
 
     conn.commit()
     conn.close()
-    print(f"Banco de dados '{db_name}' gerado com {rows} registros!")
+    # print(f"Banco de dados '{db_name}' gerado com {rows} registros!")
 
 
 # Remover banco antigo se existir
@@ -189,52 +189,23 @@ estado["semana_atual"] += 1
 salvar_estado(estado)
 
 
+
+
+
 #teste pequeno
 #secretary_generate_mock(50)
 
 
-# Para verificação
+# Para verificação do db
 
 # Instale sqlite3
-
 # entre no bd com 'sqlite3 secretary_data.db'
-
 # SELECT * FROM pacientes LIMIT 10;
-
-# 1|1|1|88653367|5|562533|20-02-2025
-# 2|0|1|56178855|3|541846|19-07-2024
-# 3|0|1|49898257|2|893789|05-11-2024
-# 4|1|0|79357639|2|790822|09-01-2025
-# 5|1|0|77270001|0|364791|11-08-2024
-# 6|0|0|95246216|0|777697|02-12-2024
-# 7|0|0|46973560|2|483722|02-06-2024
-# 8|1|1|91754706|5|575897|04-05-2024
-# 9|0|1|65043545|5|61922|10-09-2024
-# 10|1|0|16786481|2|386127|24-08-2024
-
-
 # PRAGMA table_info(pacientes);
-
-# 0|id|INTEGER|0||1
-# 1|Diagnostico|BOOLEAN|0||0
-# 2|Vacinado|BOOLEAN|0||0
-# 3|CEP|INTEGER|0||0
-# 4|Escolaridade|INTEGER|0||0
-# 5|Populacao|INTEGER|0||0
-# 6|Data|TEXT|0||0
-
-
 # SELECT COUNT(*) FROM pacientes;
-
-# 100
-
-# SELECT Diagnostico, COUNT(*) 
-# FROM pacientes 
-# GROUP BY Diagnostico;
-
-# 0|49
-# 1|51
+# SELECT Diagnostico, COUNT(*) FROM pacientes GROUP BY Diagnostico;
 
 
+print(f"Dados gerados: OMS, secretaria e hospitais.")
 
 
