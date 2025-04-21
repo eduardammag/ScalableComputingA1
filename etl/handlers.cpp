@@ -100,23 +100,30 @@ mutex& mtx, vector<Cell>& colValues)
 // função de gerar alertas para registros acima da média, inplace
 void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads) 
 {
+    // Verifica se a coluna existe
     int colIndex = input.colIdx(nameCol);
+    if (colIndex == -1) {
+        throw invalid_argument("Coluna '" + nameCol + "' não encontrada no DataFrame.");
+    }
     
-    if (input.typeCol(colIndex) == ColumnType::STRING)
-    {
-        cout << "Coluna de texto" << endl;
+    // Verifica se a coluna é numérica
+    ColumnType colType = input.typeCol(colIndex);
+    if (colType == ColumnType::STRING) {
+        throw invalid_argument("Coluna '" + nameCol + "' é do tipo STRING. Apenas colunas numéricas são suportadas.");
     }
     
     int n = input.size();
-    //Garante chunkSize mínimo de 1
+    if (n == 0) return; // DataFrame vazio, nada a fazer
+    
+    // Garante chunkSize mínimo de 1
     int chunkSize = max(n / numThreads, 1); 
     
-    // paralelização 1 - média
+    // Fase 1: Cálculo da média
     double sum = 0.0;
     mutex mtxSum;
     vector<thread> threads;
     
-    //percorre pedaços da coluna somando
+    // Percorre pedaços da coluna somando
     for (int i = 0; i < numThreads; ++i) 
     {
         int start = i * chunkSize;
@@ -127,12 +134,16 @@ void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads)
             double localSum = 0.0;
             for (int j = start; j < end; ++j)
             {
-                //Acesso direto sem cópia
                 const Cell& val = input.getRow(j)[colIndex]; 
                 try
                 {
                     localSum += toDouble(val);
-                } catch (...) {}
+                } 
+                catch (const exception& e)
+                {
+                    cerr << "Erro ao converter valor para double: " << e.what() << endl;
+                    // Continua sem adicionar ao somatório
+                }
             }
             lock_guard<mutex> lock(mtxSum);
             sum += localSum;
@@ -144,12 +155,11 @@ void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads)
     
     double mean = sum / n;
     
-    // paralelização 2 - Gerar vetor de alertas (True se valor > média)
-    //vetor compartilhado
+    // Fase 2: Gerar vetor de alertas ("Vermelho" se valor > média, "Verde" caso contrário)
     vector<Cell> alertas(n);
     mutex mtxAlerts;
     
-    // percorre a coluna original identificando as linhas acima da média
+    // Percorre a coluna original identificando as linhas acima/abaixo da média
     for (int i = 0; i < numThreads; ++i)
     {
         int start = i * chunkSize;
@@ -165,14 +175,17 @@ void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads)
                 
                 try
                 {
-                    localAlerts[j - start] = toDouble(val) > mean ? "True" : "False";
-                } catch (...)
+                    double currentVal = toDouble(val);
+                    localAlerts[j - start] = (currentVal > mean) ? "Vermelho" : "Verde";
+                } 
+                catch (const exception& e)
                 {
-                    localAlerts[j - start] = "False"; 
+                    cerr << "Erro ao converter valor para double: " << e.what() << endl;
+                    localAlerts[j - start] = "Verde"; // Valor inválido considerado abaixo da média
                 }    
             }
 
-            // não tem concorreência pois cada thread modifica o seu munícipio
+            // Atualiza o vetor compartilhado
             for (size_t j = 0; j < localAlerts.size(); ++j)
             {
                 alertas[start + j] = localAlerts[j];
@@ -182,10 +195,9 @@ void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads)
     
     for (auto& t : threads) t.join();
 
-    input.addColumn("Alertas", ColumnType::STRING, alertas, numThreads);
-
+    // Adiciona a nova coluna ao DataFrame
+    input.addColumn("Alerta_" + nameCol, ColumnType::STRING, alertas, numThreads);
 }
-
 
 //pega duas colunas ao mesmo tempo, uma para o agrupamento e outra para a agregação
 void Handler::getColGroup(const DataFrame& input, size_t start, size_t end, size_t colIndexGroup, 

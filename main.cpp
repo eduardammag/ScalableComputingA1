@@ -21,7 +21,12 @@ int main() {
     DataFrame hosp_agrup = hand.groupedDf(hosp, "CEP" , "Internado", 4, true);
     DataFrame ss_agrup = hand.groupedDf(ss, "CEP" , "Vacinado", 4, true);
     auto merged = hand.mergeByCEP(oms_agrup, hosp_agrup, ss_agrup, "CEP", "Total_Internado", "Total_Vacinado", 4);
+    // hosp.display();  //mostra o df do hospital antes de criar a coluna de alertas vermelho e verde
+    hand.meanAlert(hosp, "Internado", 4);
+    // hand.meanAlert(oms, "Nº óbitos", 4);
     cout << "Deu certo" << endl;
+    //OBS:display comentado porque o arquivo é muito grande, se quiser rodar só pega o início e fecha com ctrl+C
+    // hosp.display();  //mostra o df do hospital com a coluna de alertas vermelho e verde
     
     int vezes = 1;
     for (int n = 1; n <= 4; n += 1) 
