@@ -9,6 +9,26 @@
 #include <cctype>
 #include <unordered_map>
 
+// Função auxiliar para extrair o código da ilha (primeiros 2 dígitos)
+string extractIslandCode(const Cell& cepCell)
+{
+    string cepStr;
+    
+    // Converte a célula para string
+    if (holds_alternative<string>(cepCell)) cepStr = get<string>(cepCell);
+    else if (holds_alternative<int>(cepCell)) cepStr = to_string(get<int>(cepCell));
+    else if (holds_alternative<double>(cepCell)) cepStr = to_string(static_cast<int>(get<double>(cepCell)));
+    
+    // Remove caracteres não numéricos
+    cepStr.erase(remove_if(cepStr.begin(), cepStr.end(), [](char c) { return !isdigit(c); }), cepStr.end());
+    
+    // Pega os primeiros 2 dígitos (preenche com zero se necessário)
+    if (cepStr.empty()) return "00";
+    if (cepStr.length() == 1) return "0" + cepStr.substr(0, 1);
+    return cepStr.substr(0, 2);
+    // return cepStr;
+}
+
 // soma parcial de uma coluna (uma thread processa uma parte da coluna)
 void Handler::partialSum(const vector<Cell>& values, size_t start, size_t end, double& sum, mutex& mtx) 
 {
@@ -234,7 +254,7 @@ void Handler::agregarGrupoPar(const vector<Cell>& uniqueGroups,
     }
 }
 
-DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, const string& aggCol, int numThreads) 
+DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, const string& aggCol, int numThreads, bool groupIlha) 
 {
     const int colIdxGroup = input.colIdx(groupedCol);
     const int colIdxAgg = input.colIdx(aggCol);
@@ -273,7 +293,11 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
                     throw runtime_error("Tipo inválido em coluna de agrupamento.");
                 }
 
-                groupKeys[i] = groupKey;
+                // se estiver agrupando por ilha então só olha os 2 primeiros dígitos
+                if (groupIlha){groupKeys[i] = toDouble(extractIslandCode(groupKey));}
+                else{groupKeys[i] = groupKey;}
+
+                groupKeys[i] = toDouble(extractIslandCode(groupKey));
                 aggValues[i] = toDouble(aggCell);
             }
         });
@@ -845,179 +869,74 @@ bool Handler::contains(const string& str, const string& substr)
     return str.find(substr) != string::npos;
 }
 
-// Função auxiliar para extrair o código da ilha (primeiros 2 dígitos)
-string extractIslandCode(const Cell& cepCell)
-{
-    string cepStr;
-    
-    // Converte a célula para string
-    if (holds_alternative<string>(cepCell)) cepStr = get<string>(cepCell);
-    else if (holds_alternative<int>(cepCell)) cepStr = to_string(get<int>(cepCell));
-    else if (holds_alternative<double>(cepCell)) cepStr = to_string(static_cast<int>(get<double>(cepCell)));
-    
-    // Remove caracteres não numéricos
-    cepStr.erase(remove_if(cepStr.begin(), cepStr.end(), [](char c) { return !isdigit(c); }), cepStr.end());
-    
-    // Pega os primeiros 2 dígitos (preenche com zero se necessário)
-    if (cepStr.empty()) return "00";
-    if (cepStr.length() == 1) return "0" + cepStr.substr(0, 1);
-    return cepStr.substr(0, 2);
-}
-
-// Função para fazer merge de dois DataFrames
-DataFrame mergeTwoDataFrames(const DataFrame& df1, const DataFrame& df2, const string& cepColName, const string& suffix1, const string& suffix2)
-{
-    // Encontra o índice da coluna CEP em ambos DataFrames
+void mergeTwoDataFrames(
+    DataFrame& df1, const DataFrame& df2,
+    const string& cepColName, const string& valueCol2, const string& suffix,
+    int numThreads = 1
+) {
+    // indíces das colunas desejadas
     int cepIdx1 = df1.colIdx(cepColName);
     int cepIdx2 = df2.colIdx(cepColName);
-    
-    if (cepIdx1 == -1 || cepIdx2 == -1)
+    int valIdx2 = df2.colIdx(valueCol2);
+
+    // valores referentes do df1 no df2
+    unordered_map<string, Cell> valueMap;
+    for (int i = 0; i < df2.size(); ++i) 
     {
-        throw invalid_argument("Coluna CEP não encontrada em um dos DataFrames");
+        // itera a linha e desbore o CEP
+        const auto& row = df2.getRow(i);
+        string islandCode = extractIslandCode(row[cepIdx2]);
+        // acha o valor de CEP na coluna desejada do df2
+        Cell valor = row[valIdx2];
+        valueMap[islandCode] = valor;  
     }
 
-    // Mapeia códigos de ilha para linhas
-    unordered_map<string, vector<size_t>> islandMap1;
-    unordered_map<string, vector<size_t>> islandMap2;
+    // inicializa a coluna a ser adicionada
+    string newColName = valueCol2 + suffix;
+    ColumnType newColType = df2.typeCol(valIdx2);
 
-    // Preenche o primeiro mapa
-    for (int i = 0; i < df1.size(); ++i)
+    // preenche a coluna com os valores na ordem certa
+    vector<Cell> newColValues;
+    for (int i = 0; i < df1.size(); ++i) 
     {
         const auto& row = df1.getRow(i);
         string islandCode = extractIslandCode(row[cepIdx1]);
-        islandMap1[islandCode].push_back(i);
-    }
 
-    // Preenche o segundo mapa
-    for (int i = 0; i < df2.size(); ++i)
-    {
-        const auto& row = df2.getRow(i);
-        string islandCode = extractIslandCode(row[cepIdx2]);
-        islandMap2[islandCode].push_back(i);
-    }
-
-    // Prepara o DataFrame resultante
-    vector<string> newColNames;
-    vector<ColumnType> newColTypes;
-
-    // Adiciona colunas do primeiro DataFrame
-    auto colNames1 = df1.getColumnNames();
-    for (int i = 0; i < df1.numCols(); ++i)
-    {
-        if (colNames1[i] == cepColName)
+        if (valueMap.count(islandCode)) 
         {
-        newColNames.push_back(colNames1[i]);  // sem sufixo
+            newColValues.push_back(valueMap[islandCode]);
         } else 
         {
-        newColNames.push_back(colNames1[i] + suffix1);
-        }
-        newColTypes.push_back(df1.typeCol(i));
-    }
-
-    // Adiciona colunas do segundo DataFrame
-    auto colNames2 = df2.getColumnNames();
-    for (int i = 0; i < df2.numCols(); ++i)
-    {
-        // Não repete a coluna CEP
-        if (colNames2[i] != cepColName)
-        {
-            newColNames.push_back(colNames2[i] + suffix2);
-            newColTypes.push_back(df2.typeCol(i));
+            // Caso não encontre, coloca valor vazio
+            newColValues.push_back(Cell());  
         }
     }
-
-    DataFrame result(newColNames, newColTypes);
-
-    // Faz o merge
-    for (const auto& pair1 : islandMap1)
-    {
-        const string& islandCode = pair1.first;
-        auto it = islandMap2.find(islandCode);
-        
-        if (it != islandMap2.end())
-        {
-            // Combina todas as linhas com o mesmo código de ilha
-            for (size_t i : pair1.second)
-            {
-                for (size_t j : it->second)
-                {
-                    const auto& row1 = df1.getRow(i);
-                    const auto& row2 = df2.getRow(j);
-                    
-                    vector<Cell> newRow;
-                    // Adiciona todas as células do primeiro DataFrame
-                    newRow.insert(newRow.end(), row1.begin(), row1.end());
-                    
-                    // Adiciona células do segundo DataFrame, exceto a coluna CEP
-                    int cepColIdx = df2.colIdx(cepColName);
-                    for (size_t k = 0; k < row2.size(); ++k)
-                    {
-                        if (k != static_cast<size_t>(cepColIdx))
-                        {
-                            newRow.push_back(row2[k]);
-                        }
-                    }
-                    
-                    result.addRow(newRow);
-                }
-            }
-        }
-    }
-
-    return result;
+    // Adiciona a nova coluna ao df1
+    df1.addColumn(newColName, newColType, newColValues, numThreads);
 }
 
-map<string, DataFrame> Handler::mergeByCEP(const DataFrame& dfA, const DataFrame& dfB, const DataFrame& dfC, const string& cepColName)
+
+                    
+map<string, DataFrame> Handler::mergeByCEP(DataFrame& dfA, DataFrame& dfB, DataFrame& dfC, const string& cepColName,
+    const string& colB, const string& colC, int numThreads)
 {
     map<string, DataFrame> results;
-
+    
     // Verifica se a coluna CEP existe em todos os DataFrames
     if (int(dfA.colIdx(cepColName)) == -1 || int(dfB.colIdx(cepColName)) == -1 || int(dfC.colIdx(cepColName)) == -1)
     {
         throw invalid_argument("Coluna CEP não encontrada em um dos DataFrames");
     }
-
-    // Merge dos três DataFrames
-    DataFrame mergeAB = mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B");
-    DataFrame mergeABC = mergeTwoDataFrames(mergeAB, dfC, cepColName, "", "_C");
-    results.insert({"ABC", mergeABC});
-
-    // Todas as permutações dois a dois
-    results.insert({"AB", mergeTwoDataFrames(dfA, dfB, cepColName, "_A", "_B")});
-    results.insert({"AC", mergeTwoDataFrames(dfA, dfC, cepColName, "_A", "_C")});
-    results.insert({"BC", mergeTwoDataFrames(dfB, dfC, cepColName, "_B", "_C")});
-
+    DataFrame guardaA = dfA;
+    
+    mergeTwoDataFrames(dfA, dfB,cepColName,colB, "_B", numThreads);
+    results.insert({"AB", dfA});
+    mergeTwoDataFrames(dfB, dfC,cepColName,colC, "_C", numThreads);
+    results.insert({"BC", dfB});
+    mergeTwoDataFrames(guardaA, dfC, cepColName,colC,  "_C", numThreads);
+    results.insert({"AC", guardaA});
+    mergeTwoDataFrames(dfA, dfC,cepColName,colC, "_B", numThreads);
+    results.insert({"ABC", dfA});
+    
     return results;
 }
-
-/*
-
-// 2. OutlierDetector - Detecta valores anômalos
-DataFrame OutlierDetector::process(const DataFrame& input) {
-    DataFrame output = input;
-    output.detectOutliers();
-    return output;
-}
-
-// 3. TimeAggregator - Agrega dados por tempo
-DataFrame TimeAggregator::process(const DataFrame& input) {
-    DataFrame output = input;
-    output.aggregateByTime("weekly");  // Suponha que esse método exista
-    return output;
-}
-
-// 4. EpidemiologyAnalyzer - Analisa padrões epidemiológicos
-DataFrame EpidemiologyAnalyzer::process(const DataFrame& input) {
-    DataFrame output = input;
-    output.analyzeCorrelations();  // Suponha que esse método exista
-    return output;
-}
-
-// 5. AlertGenerator - Gera alertas de surtos
-DataFrame AlertGenerator::process(const DataFrame& input) {
-    DataFrame output = input;
-    output.generateAlerts();
-    return output;
-}
-
-*/

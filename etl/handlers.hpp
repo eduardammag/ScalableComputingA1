@@ -22,7 +22,7 @@ public:
     void meanAlert(DataFrame& , const string& , int );
 
     // função para agregar duas colunas
-    DataFrame groupedDf(const DataFrame& , const string& , const string& , int );
+    DataFrame groupedDf(const DataFrame& , const string& , const string& , int , bool);
 
     // Handler para limpeza de dados - remove duplicatas e linhas/colunas com muitos valores nulos
     void dataCleaner(DataFrame&, int);
@@ -34,7 +34,7 @@ public:
     void validateDataFrame(DataFrame&, int);
 
     // Handler para merge de 3 DataFrames por CEP
-    static map<string, DataFrame> mergeByCEP(const DataFrame&, const DataFrame&, const DataFrame&, const string&);
+    map<string, DataFrame> mergeByCEP(DataFrame&, DataFrame&, DataFrame&, const string&, const string&, const string&, int);
 
 private:
     // Estrutura para regras de validação
