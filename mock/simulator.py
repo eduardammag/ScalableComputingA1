@@ -44,7 +44,13 @@ cep_ilhas = list(range(11, 31))  # 11 até 30, totalizando 20 ilhas
 cep_ilha_escolhida = random.choice(cep_ilhas)
 
 # Gera CEPs de regiões da ilha escolhida: 5 regiões com CEPs 5 dígitos, do tipo 12001, 12002...
-cep_regioes = [int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 6)] 
+# cep_regioes = [int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 6)] 
+cep_regioes = []
+    
+for cep_ilha_escolhida in cep_ilhas:
+    # Gera os CEPs das regiões da ilha escolhida e adiciona na lista
+    cep_regioes.extend([int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 5 + 1)])
+    
 
 
 ############################################### OMS-CSV ##############################################################
@@ -53,7 +59,7 @@ cep_regioes = [int(f"{cep_ilha_escolhida:02d}{i:03d}") for i in range(1, 6)]
 
 def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databases_mock/oms_mock.txt"):
     """Gera um arquivo .txt com dados fictícios no formato da tabela da OMS."""
-    headers = ["Nº óbitos", "População", "CEP da ilha", "Nº recuperados", "Nº de vacinados", "Data"]
+    headers = ["Nº óbitos", "População", "CEP", "Nº recuperados", "Nº de vacinados", "Data"]
 
 
     # arquivo_existe = os.path.exists(output_file)
