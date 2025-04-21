@@ -86,12 +86,6 @@ void consumidorExtrator(int id) {
                 continue;
             }
 
-
-            //e joga na fila para os tratadores
-            // {
-            //     unique_lock<mutex> lock(extTratMutex);
-            //     extratorTratadorFila.push(move(df));
-            // }
             {
                 unique_lock<mutex> lock(extTratMutex);
                 extratorTratadorFila.push({arquivo, move(df)});
@@ -143,7 +137,7 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
             
             if (origem.find("hospital") != string::npos) 
             {
-                grouping = handler.groupedDf(dfExtraido, groupedCol, aggCol, numThreads);
+                grouping = handler.groupedDf(dfExtraido, groupedCol, aggCol, numThreads, false);
                 
                 LoaderItem l_item{
                     
@@ -160,11 +154,10 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
         else if (origem.find("oms") != string::npos) 
 
         {
-            handler.meanAlert(dfExtraido, meanCol, numThreads); 
-
+            grouping = handler.groupedDf(dfExtraido, "CEP", meanCol, numThreads, false);
             LoaderItem l_item{
 
-                std::move(dfExtraido),
+                std::move(grouping),
                 "saida_tratada_oms" + to_string(count++) + ".csv",
                 id
             };
