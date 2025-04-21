@@ -19,6 +19,7 @@
 
 
 
+
 \documentclass{article}
 \usepackage{minted}
 
@@ -61,7 +62,8 @@
 \usepackage[portuguese]{babel} % Ativa o português para hifenização
 \usepackage[utf8]{inputenc}    % Suporte a caracteres acentuados
 \usepackage[T1]{fontenc}       % Fonte com suporte a caracteres especiais
-
+\usepackage{xcolor}
+\usepackage[ colorlinks=true, linkcolor=blue,     urlcolor=blue,  citecolor=blue ]{hyperref}
 \begin{document}
 
 \begin{titlepage}
@@ -119,7 +121,7 @@
 
 
 \section{Introdução}
-Este relatório apresenta o desenvolvimento de um Micro-Framework voltado à construção de pipelines para processamento de dados. O principal objetivo é fornecer uma solução que promova maior eficiência e balanceamento de carga, por meio da execução concorrente e paralela das etapas de processamento. Embora a aplicação tenha sido especialmente construida para o monitoramento de uma doença infecciosa, sua estrutura foi projetada de forma genérica, com pontos de extensão (hot-spots) que permitem a personalização conforme as necessidades específicas de diferentes cenários.
+Este relatório apresenta o desenvolvimento de um Micro-Framework voltado à construção de pipelines para processamento de dados. O principal objetivo é fornecer uma solução que promova maior eficiência e balanceamento de carga, por meio da execução concorrente e paralela das etapas de processamento. Embora a aplicação tenha sido especialmente construida para o monitoramento de uma doença infecciosa, sua estrutura foi projetada de forma genérica, com pontos de extensão (hot-spots) que permitem a personalização conforme as necessidades específicas de diferentes cenários. O desenvolvimento do projeto pode ser encontrado nesse \href{https://github.com/eduardammag/ScalableComputingA1}{\textcolor{blue}{\textbf{repositório GitHub}}}.
 
 \section{Modelagem}
 
@@ -426,15 +428,15 @@ Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pont
 
 \section{Análise de tempo de execução}
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \includegraphics[height=10cm]{threads1-3.png} 
-    % \qquad
     \includegraphics[height=10cm]{threads10-12.png} 
     \caption{Testes com diferentes configurações de threads}
-    \label{fig:example}%
+    \label{fig:example}
 \end{figure}
 
-Para demosntrar a corretude e eficiência do processo de paralelização temos acima um exemplo de uma sequência de testes com diferentes configurações de threads, assim como esperado no começo temos uma drástica diminuição no tempo, sendo praticamente reduzida metade do tempo, e no final pela saturação dos núcleos o ganho marginal de cada thread já se torna mais sútil. Uma observação muito importante, quando utilizamos 1 consumidor estamos na verdade utilizando no mínimo 3 threads, uma para cada etapa de extração, tratamento e carregamento que podem começar a trabal har antes mesmo do processo anteriror se encerrar totalmente, e analogamente quando testamos para 2 consumidores são no mínimo 6 threads, 2 para cada etapa.
+
+Para demosntrar a corretude e eficiência do processo de paralelização temos acima um exemplo de uma sequência de testes com diferentes configurações de threads, assim como esperado no começo temos uma drástica diminuição no tempo, sendo praticamente reduzida metade do tempo, e no final pela saturação dos núcleos o ganho marginal de cada thread já se torna mais sútil. Uma observação muito importante, quando utilizamos 1 consumidor estamos na verdade utilizando no mínimo 3 threads, uma para cada etapa de extração, tratamento e carregamento que podem começar a trabalhar antes mesmo do processo anteriror se encerrar totalmente, e analogamente quando testamos para 2 consumidores são no mínimo 6 threads, 2 para cada etapa.
 
 \end{document}
