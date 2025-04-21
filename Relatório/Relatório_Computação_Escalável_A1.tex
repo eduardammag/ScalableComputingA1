@@ -213,13 +213,21 @@ Ele garante integridade dos dados e fornece uma base comum para as análises pos
 
 
 \section{Tratadores}
-\subsection{T1}
-\subsection{T2}
-\subsection{T3}
-\subsection{T4}
-\subsection{T5}
-\subsection{T6}
 
+Os tratadores implementados em C++ nesse projeto são responsáveis por preparar os dados para análises. Foram implementados 5 tratadores, sendo 2 gerais (todos os arquivos passam por eles) e 3 específicos:
+
+\begin{itemize}
+    \item \textbf{T1 - geral:} O tratador 1 é responsável por eliminar duplicatas, colunas e linhas majoritariamente nulas. Ele recebe um dataframe vindo do extrator e retorna um dataframe para o tratador 2.
+
+    \item \textbf{T2 - geral:} O tratador 2 é responsável por validar os dados do dataframe, isto é, eliminar linhas com idade negativa, números de CEP com menos ou mais dígitos do que deveria, número total de óbitos negativo, entre outros. Este tratador também tem grau de entrada e saída 1.
+    
+    \item \textbf{T3 - específico:} O tratador 3 tem grau de entrada 3 e grau de saída 4. Ele recebe 3 dataframes com duas colunas (advindos do T4 que é detalhado a seguir) e faz o merge dos três dataframes e de suas permutações também, isto é, considerando A, B e C os DFs que entram, temos que serão retornados os DFs AB, AC, BC e ABC. Tudo isso acontece por meio de uma coluna em comum a qual no escopo deste projeto é aquela referente ao CEP (única coluna que se repete em todos os DFs, ainda que em alguns seja CEP da ilha e em outros o CEP de uma região de uma ilha, mas essas diferenças foram tratadas observando apenas os 2 primeiros dígitos os quais se referem à ilha).
+    
+    \item \textbf{T4 - específico:} O tratador 4 recebe um Dataframe limpo advindo do T2, uma coluna de agregação e uma coluna de agrupamento. Basicamente, é retornado um Dataframe com as duas colunas especificadas, sendo que a coluna de agregação terá seus dados agrupados de acordo com a outra coluna mencionada. Por exemplo, se a ideia é descobrir o número de casos por região, o T4 retorna um DF com a coluna referente ao número de casos e a coluna referente ao CEP da região que possuirá apenas valores únicos com o agrupamento. O DF de saída pode ir para o T3 ou direto para o Loader.
+    
+    \item \textbf{T5 - específico:} O tratador 5 recebe um DF limpo do T2 e é responsável por calcular a média dos dados em uma determinada coluna, criando uma coluna de alerta para indicar quais linhas estão acima da média. Por exemplo, se a ideia é identificar regiões com surtos de epidemia pode-se calcular a média do número de internados e gerar um alerta vermelho para os hospitais e/ou regiões que estejam com mais internações que o "normal" pela doença infecciosa a ser monitorada.
+    
+\end{itemize}
 
 \section{Loader}
 
