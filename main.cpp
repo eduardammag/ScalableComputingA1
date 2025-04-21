@@ -1,59 +1,40 @@
 #include "pipeline/pipeline.hpp"
 #include <iostream>
 #include <chrono>
-#include "etl/dashboard.hpp"
-#include "etl/dataframe.hpp"
-#include "etl/extrator.hpp"
-#include "etl/handlers.hpp"
 #include <filesystem>
+#include "triggers.hpp"
 
 using namespace std;
 
 int main() {
+    bool usarTimer = true;
 
-    Extrator extra;
-    Handler hand;
-    DataFrame oms = extra.carregar("databases_mock/oms_mock.txt");
-    DataFrame hosp = extra.carregar("databases_mock/hospital_mock_7.csv");
-    DataFrame ss = extra.carregar("databases_mock/secretary_data.db");
+  // Intervalo em milissegundos (só será usado se for timer)
+  int intervalo = 20000;
 
-    DataFrame oms_agrup = hand.groupedDf(oms, "CEP" , "Nº óbitos", 4, false);
-    DataFrame hosp_agrup = hand.groupedDf(hosp, "CEP" , "Internado", 4, true);
-    DataFrame ss_agrup = hand.groupedDf(ss, "CEP" , "Vacinado", 4, true);
-    auto merged = hand.mergeByCEP(oms_agrup, hosp_agrup, ss_agrup, "CEP", "Total_Internado", "Total_Vacinado", 4);
-    cout << "Deu certo" << endl;
-    
-    int vezes = 1;
-    for (int n = 1; n <= 4; n += 1) 
-    {   cout << "\n--- Testando com " << n << " consumidor(es) ---\n";
+  // Cria o trigger
+  Trigger trigger([] {executarPipeline(8);}, intervalo, usarTimer);
 
-        for (int j = 0; j < vezes; j++)
-        {            
-            executarPipeline(n);  // Pipeline com n consumidores
-        }
-    }
+  if (usarTimer) 
+  {
+      cout << "Modo timer: executando a cada " << intervalo / 1000 << " segundos..." << endl;
+      trigger.start();
+      this_thread::sleep_for(chrono::seconds(120));
+      trigger.stop();
+      cout << "Timer parado." << endl;
+  } 
+  else 
+  {
+      cout << "Modo por requisição: pressione ENTER para executar o pipeline, 'q' para sair." << endl;
+      string input;
+      while (true)
+      {
+          getline(cin, input);
+          if (input == "q") break;
 
-    cout << "========== DASHBOARD ILHAS ==========\n";
-
-    // ANÁLISE 1: Alertas semanais por CEP
-    cout << "\n>> Análise 1: Alertas semanais por CEP\n";
-    exibirAlertasTratados("database_loader/saida_tratada_oms04.csv");
-
-    // ANÁLISE 2: Estatísticas gerais de internados (média e desvio padrão)
-    cout << "\n>> Análise 2: Estatísticas gerais dos hospitais\n";
-    calcularEstatisticasHospitalares();
-
-    // ANÁLISE 3: Estatísticas por hospital
-    cout << "\n>> Análise 3: Estatísticas individuais por hospital\n";
-    calcularEstatisticasPorHospital();
-
-    // ANÁLISE 4: Correlação entre vacinação e internação
-    cout << "\n>> Análise 4: Correlação entre vacinação e internação\n";
-    analyzeCorrelation();
-    // ANÁLISE 5: Taxa de mortalidade por população
-    cout << "\n>> Análise 5: Regressão Linear para estimar o número de internados com base na quantidade de vacinados.\n";
-    regressionInternadoVsVacinado();
-    cout << "\n============ FIM DO DASHBOARD ============\n";
-
+          // Executa sob demanda
+          trigger.request();  
+      }
+  }
     return 0;
 }

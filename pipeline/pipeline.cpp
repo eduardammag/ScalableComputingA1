@@ -555,9 +555,8 @@ void executarPipeline(int numConsumidores) {
     cout << "1. Extração:    " << tempoExtracao.count() << " segundos" << endl;
     cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
     cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
-    cout << "---------------------------------" << endl;
-    cout << "\n === Merge ===" << endl;
     cout << "4. Merge:      " << tempomerge.count() << " segundos" << endl;
+    cout << "---------------------------------" << endl;
 
 
     cout << "Tempo Total:   " << tempoTotal.count() << " segundos\n" << endl;

@@ -1,4 +1,5 @@
 #include "triggers.hpp"
+#include "etl/dashboard.hpp"
 #include <iostream>
 
 void rodarScriptPython() {
@@ -37,6 +38,29 @@ void Trigger::start()
                 // executa a pipeline
                 callback();
                 
+                // faz as análises depois da pipeline ser chamada
+                cout << "========== DASHBOARD ILHAS ==========\n";
+
+                // ANÁLISE 1: Alertas semanais por CEP
+                cout << "\n>> Análise 1: Alertas semanais por CEP\n";
+                exibirAlertasTratados("database_loader/saida_tratada_oms04.csv");
+
+                // ANÁLISE 2: Estatísticas gerais de internados (média e desvio padrão)
+                cout << "\n>> Análise 2: Estatísticas gerais dos hospitais\n";
+                calcularEstatisticasHospitalares();
+
+                // ANÁLISE 3: Estatísticas por hospital
+                cout << "\n>> Análise 3: Estatísticas individuais por hospital\n";
+                calcularEstatisticasPorHospital();
+
+                // ANÁLISE 4: Correlação entre vacinação e internação
+                cout << "\n>> Análise 4: Correlação entre vacinação e internação\n";
+                analyzeCorrelation();
+                // ANÁLISE 5: Taxa de mortalidade por população
+                cout << "\n>> Análise 5: Regressão Linear para estimar o número de internados com base na quantidade de vacinados.\n";
+                regressionInternadoVsVacinado();
+                cout << "\n============ FIM DO DASHBOARD ============\n";
+                
                 auto end_time = chrono::steady_clock::now();
                 auto elapsed = chrono::duration_cast<chrono::milliseconds>(end_time - start_time);
                 auto sleep_time = chrono::milliseconds(interval) - elapsed;
@@ -65,33 +89,3 @@ void Trigger::request()
         callback();  
     }
 }
-
-
-
-/* teste da main
-    bool usarTimer = true;
-
-  // Intervalo em milissegundos (só será usado se for timer)
-  int intervalo = 60000;
-
-  // Cria o trigger
-  Trigger trigger([] {executarPipeline(2);}, intervalo, usarTimer);
-
-  if (usarTimer) {
-      cout << "Modo timer: executando a cada " << intervalo / 1000 << " segundos..." << endl;
-      trigger.start();
-      this_thread::sleep_for(chrono::seconds(60));  // Deixa rodar por 20 segundos
-      trigger.stop();
-      cout << "Timer parado." << endl;
-  } else {
-      cout << "Modo por requisição: pressione ENTER para executar o pipeline, 'q' para sair." << endl;
-      string input;
-      while (true) {
-          getline(cin, input);
-          if (input == "q") break;
-
-          trigger.request();  // Executa sob demanda
-      }
-  }
-    return 0;
-*/
