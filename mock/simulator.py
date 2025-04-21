@@ -7,6 +7,9 @@ import json
 
 STATE_FILE = "mock/simulator_state.json"
 
+minLinhas = 50000 
+maxLinhas = 75000
+
 def carregar_estado():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r") as f:
@@ -57,7 +60,7 @@ for cep_ilha_escolhida in cep_ilhas:
 
 
 
-def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databases_mock/oms_mock.txt"):
+def oms_generate_mock(rows=random.randint(minLinhas, maxLinhas), output_file="databases_mock/oms_mock.txt"):
     """Gera um arquivo .txt com dados fictícios no formato da tabela da OMS."""
     headers = ["Nº óbitos", "População", "CEP", "Nº recuperados", "Nº de vacinados", "Data"]
 
@@ -66,7 +69,7 @@ def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databa
 
     
 
-    with open(output_file, mode="w") as file:  # modo append ("a") para adicionar, "w" para sobrescrever
+    with open(output_file, mode="w", encoding="utf-8") as file:  # modo append ("a") para adicionar, "w" para sobrescrever
         # if not arquivo_existe:
         #     file.write("\t".join(headers) + "\n")  # só escreve cabeçalho se for um novo arquivo
         file.write("\t".join(headers) + "\n")
@@ -83,7 +86,7 @@ def oms_generate_mock(rows=random.randint(500_000, 600_000), output_file="databa
 
     # print(f"Arquivo TXT gerado: {output_file}")
 
-oms_generate_mock()
+# oms_generate_mock()
 
 #teste pequeno
 # oms_generate_mock(50)
@@ -123,7 +126,7 @@ def gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=80, max_linhas
 
 
 # hospital_generate_mock(100)
-gerar_multiplos_arquivos_hospital(qtde_arquivos=10, min_linhas=500_000, max_linhas=600_000)
+gerar_multiplos_arquivos_hospital(qtde_arquivos=10, min_linhas=minLinhas, max_linhas=maxLinhas)
 
 #teste pequeno
 #gerar_multiplos_arquivos_hospital(qtde_arquivos=3, min_linhas=5, max_linhas=20)
@@ -153,7 +156,7 @@ def create_database(db_name="databases_mock/secretary_data.db"):
     conn.commit()
     conn.close()
 
-def secretary_generate_mock(rows=random.randint(500_000, 600_000), db_name="databases_mock/secretary_data.db"):
+def secretary_generate_mock(rows=random.randint(minLinhas, maxLinhas), db_name="databases_mock/secretary_data.db"):
     """Gera dados fictícios e insere no banco de dados."""
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
