@@ -272,40 +272,47 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
     for (int t = 0; t < numThreads; ++t) 
     {
         threads.emplace_back([&, t]()
+{
+    try {
+        const int start = t * chunkSize;
+        const int end = min(start + chunkSize, numRows);
+
+        for (int i = start; i < end; ++i)
         {
-            const int start = t * chunkSize;
-            const int end = min(start + chunkSize, numRows);
+            const auto& row = input.getRow(i);
+            const Cell& groupCell = row[colIdxGroup];
+            const Cell& aggCell = row[colIdxAgg];
 
-            for (int i = start; i < end; ++i)
-            {
-                const auto& row = input.getRow(i);
-                const Cell& groupCell = row[colIdxGroup];
-                const Cell& aggCell = row[colIdxAgg];
-
-                int groupKey;
-                if (holds_alternative<int>(groupCell)) {
-                    groupKey = get<int>(groupCell);
-                } else if (holds_alternative<double>(groupCell)) {
-                    groupKey = static_cast<int>(get<double>(groupCell));
-                } else if (holds_alternative<string>(groupCell)) {
-                    groupKey = stoi(get<string>(groupCell));
-                } else {
-                    throw runtime_error("Tipo inválido em coluna de agrupamento.");
-                }
-
-                // se estiver agrupando por ilha então só olha os 2 primeiros dígitos
-                if (groupIlha){groupKeys[i] = toDouble(extractIslandCode(groupKey));}
-                else{groupKeys[i] = groupKey;}
-
-                groupKeys[i] = toDouble(extractIslandCode(groupKey));
-                aggValues[i] = toDouble(aggCell);
+            int groupKey;
+            if (holds_alternative<int>(groupCell)) {
+                groupKey = get<int>(groupCell);
+            } else if (holds_alternative<double>(groupCell)) {
+                groupKey = static_cast<int>(get<double>(groupCell));
+            } else if (holds_alternative<string>(groupCell)) {
+                groupKey = stoi(get<string>(groupCell));
+            } else {
+                throw runtime_error("Tipo inválido em coluna de agrupamento.");
             }
-        });
-    }
 
+            if (groupIlha) {
+                string islandCodeStr = extractIslandCode(groupCell);
+                groupKeys[i] = stoi(islandCodeStr);
+            } else {
+                groupKeys[i] = groupKey;
+            }
+
+            aggValues[i] = toDouble(aggCell);
+        }
+    } catch (const std::exception& e) {
+        cerr << "[Erro Thread Fase 1 " << t << "] " << e.what() << endl;
+    }
+});
+    
+    }
+    
     for (auto& thread : threads) thread.join();
     threads.clear();
-
+    
     // Fase 2: Agregação paralela
     vector<unordered_map<int, double>> partialSums(numThreads);
     
@@ -317,7 +324,7 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
         {
             const int start = t* chunkSize;
             const int end = min(start + chunkSize, numRows);
-
+            
             for (int i = start; i < end; ++i)
             {
                 partialSums[t][groupKeys[i]] += aggValues[i];
@@ -325,7 +332,7 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
         });
     }
     for (auto& thread : threads) thread.join();
-
+    
     //Combinando resultados
     unordered_map<int, double> totalSums;
     for (const auto& map : partialSums)
