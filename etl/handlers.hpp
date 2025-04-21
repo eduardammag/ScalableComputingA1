@@ -25,7 +25,7 @@ public:
     DataFrame groupedDf(const DataFrame& , const string& , const string& , int , bool);
 
     // Handler para limpeza de dados - remove duplicatas e linhas/colunas com muitos valores nulos
-    void dataCleaner(DataFrame&, int);
+    void dataCleaner(DataFrame&);
 
     // Função auxiliar para verificar se uma célula é nula
     bool isNullCell(const Cell&);
@@ -74,13 +74,13 @@ private:
         const std::vector<Cell>&, mutex&, std::unordered_map<std::string, double>&);
     
     // Função auxiliar para remover linhas duplicadas
-    void removeDuplicateRows(DataFrame&, int);
+    void removeDuplicateRows(DataFrame&);
 
     // Função auxiliar para remover linhas com muitos valores nulos
-    void removeSparseRows(DataFrame&, double, int);
+    void removeSparseRows(DataFrame&, double);
 
     // Função auxiliar para remover colunas com muitos valores nulos
-    void removeSparseColumns(DataFrame&, double, int);
+    void removeSparseColumns(DataFrame&, double);
 
     // Métodos auxiliares para validação
     vector<ColumnValidationRules> analyzeColumnsForValidation(const DataFrame&, int);

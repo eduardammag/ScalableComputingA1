@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
+#include <unordered_set>
 
 // Função auxiliar para extrair o código da ilha (primeiros 2 dígitos)
 string extractIslandCode(const Cell& cepCell)
@@ -370,16 +371,16 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
 
 
 // Handler para limpeza de dados - remove duplicatas e linhas/colunas com muitos valores nulos
-void Handler::dataCleaner(DataFrame& input, int numThreads)
+void Handler::dataCleaner(DataFrame& input)
 {
     // Primeiro passo: remover linhas duplicadas
-    removeDuplicateRows(input, numThreads);
+    removeDuplicateRows(input);
     
     // Segundo passo: remover linhas com muitos valores nulos
-    removeSparseRows(input, 0.9, numThreads);
+    removeSparseRows(input, 0.9);
     
     // Terceiro passo: remover colunas com muitos valores nulos
-    removeSparseColumns(input, 0.9, numThreads);
+    removeSparseColumns(input, 0.9);
 }
 
 // Função auxiliar para verificar se uma célula é nula
@@ -392,230 +393,126 @@ bool Handler::isNullCell(const Cell& cell)
     return false; // Outros tipos não são considerados nulos nesta implementação
 }
 
-// Função auxiliar para remover linhas duplicadas
-void Handler::removeDuplicateRows(DataFrame& input, int numThreads)
+// Hash de uma linha para detecção rápida de duplicatas
+size_t hashRow(const vector<Cell>& row)
 {
+    size_t seed = row.size();
+    for (const auto& cell : row)
+    {
+        seed ^= std::visit([](auto&& val) {
+            return std::hash<std::decay_t<decltype(val)>>{}(val);
+        }, cell) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+}
+
+// Função auxiliar para remover linhas duplicadas
+void Handler::removeDuplicateRows(DataFrame& input)
+{
+
+    unordered_set<size_t> seenHashes;
+    vector<vector<Cell>> uniqueRows;
     const int numRows = input.size();
-    if (numRows == 0) return;
 
-    const int numCols = input.numCols();
-    vector<bool> toKeep(numRows, true);
-    mutex mtx;
-
-    // Dividir o trabalho entre threads para encontrar duplicatas
-    int chunkSize = max(numRows / numThreads, 1);
-    vector<thread> threads;
-
-    for (int t = 0; t < numThreads; ++t)
-    {
-        threads.emplace_back([&, t]() {
-            const int start = t * chunkSize;
-            const int end = min(start + chunkSize, numRows);
-
-            for (int i = start; i < end; ++i)
-            {
-                if (!toKeep[i]) continue; // Já marcado para remoção
-
-                const auto& currentRow = input.getRow(i);
-                
-                // Verificar duplicatas nas linhas seguintes
-                for (int j = i + 1; j < numRows; ++j)
-                {
-                    if (!toKeep[j]) continue;
-
-                    bool isDuplicate = true;
-                    const auto& compareRow = input.getRow(j);
-                    
-                    for (int col = 0; col < numCols; ++col)
-                    {
-                        if (currentRow[col] != compareRow[col])
-                        {
-                            isDuplicate = false;
-                            break;
-                        }
-                    }
-
-                    if (isDuplicate) {
-                        lock_guard<mutex> lock(mtx);
-                        toKeep[j] = false;
-                    }
-                }
-            }
-        });
-    }
-
-    for (auto& t : threads) t.join();
-
-    // Obter nomes e tipos das colunas originais
-    vector<string> colNames = input.getColumnNames();
-    vector<ColumnType> colTypes;
-    for (int i = 0; i < numCols; ++i)
-    {
-        colTypes.push_back(input.typeCol(i));
-    }
-
-    // Criar novo DataFrame sem as linhas duplicadas
-    DataFrame cleaned{colNames, colTypes};
     for (int i = 0; i < numRows; ++i)
     {
-        if (toKeep[i]) cleaned.addRow(input.getRow(i));
+        const auto& row = input.getRow(i);
+        size_t h = hashRow(row);
+        if (seenHashes.insert(h).second)
+        {
+            uniqueRows.push_back(row);
+        }
     }
-
-    input = move(cleaned);
 }
 
 // Função auxiliar para remover linhas com muitos valores nulos
-void Handler::removeSparseRows(DataFrame& input, double nullThreshold, int numThreads)
+void Handler::removeSparseRows(DataFrame& input, double nullThreshold)
 {
     const int numRows = input.size();
-    if (numRows == 0) return;
-
     const int numCols = input.numCols();
-    const int thresholdCount = numCols * nullThreshold;
-    vector<bool> toKeep(numRows, true);
-    mutex mtx;
+    const int thresholdCount = static_cast<int>(numRows * nullThreshold);
 
-    // Dividir o trabalho entre threads para verificar linhas esparsas
-    int chunkSize = max(numRows / numThreads, 1);
-    vector<thread> threads;
+    vector<int> nullCounts(numCols, 0);
 
-    for (int t = 0; t < numThreads; ++t)
-    {
-        threads.emplace_back([&, t]()
-        {
-            const int start = t * chunkSize;
-            const int end = min(start + chunkSize, numRows);
-
-            for (int i = start; i < end; ++i)
-            {
-                int nullCount = 0;
-                const auto& row = input.getRow(i);
-                
-                for (int col = 0; col < numCols; ++col)
-                {
-                    if (isNullCell(row[col]))
-                    {
-                        nullCount++;
-                    }
-                }
-
-                if (nullCount >= thresholdCount)
-                {
-                    lock_guard<mutex> lock(mtx);
-                    toKeep[i] = false;
-                }
-            }
-        });
-    }
-
-    for (auto& t : threads) t.join();
-
-    // Obter nomes e tipos das colunas originais
-    vector<string> colNames = input.getColumnNames();
-    vector<ColumnType> colTypes;
-    for (int i = 0; i < numCols; ++i)
-    {
-        colTypes.push_back(input.typeCol(i));
-    }
-
-    // Criar novo DataFrame sem as linhas esparsas
-    DataFrame cleaned(colNames, colTypes);
     for (int i = 0; i < numRows; ++i)
     {
-        if (toKeep[i])
+        const auto& row = input.getRow(i);
+        for (int col = 0; col < numCols; ++col)
         {
-            cleaned.addRow(input.getRow(i));
+            if (isNullCell(row[col])) nullCounts[col]++;
         }
     }
 
-    input = move(cleaned);
-}
-
-// Função auxiliar para remover colunas com muitos valores nulos
-void Handler::removeSparseColumns(DataFrame& input, double nullThreshold, int numThreads)
-{
-    const int numRows = input.size();
-    if (numRows == 0) return;
-
-    const int numCols = input.numCols();
-    const int thresholdCount = numRows * nullThreshold;
-    vector<bool> toKeep(numCols, true);
-    vector<int> nullCounts(numCols, 0);
-    mutex mtx;
-
-    // Dividir o trabalho entre threads para contar nulos por coluna
-    int chunkSize = max(numRows / numThreads, 1);
-    vector<thread> threads;
-
-    for (int t = 0; t < numThreads; ++t)
-    {
-        threads.emplace_back([&, t]()
-        {
-            const int start = t * chunkSize;
-            const int end = min(start + chunkSize, numRows);
-
-            vector<int> localNullCounts(numCols, 0);
-
-            for (int i = start; i < end; ++i)
-            {
-                const auto& row = input.getRow(i);
-                
-                for (int col = 0; col < numCols; ++col)
-                {
-                    if (isNullCell(row[col]))
-                    {
-                        localNullCounts[col]++;
-                    }
-                }
-            }
-
-            // Atualizar contagens globais
-            lock_guard<mutex> lock(mtx);
-            for (int col = 0; col < numCols; ++col)
-            {
-                nullCounts[col] += localNullCounts[col];
-            }
-        });
-    }
-
-    for (auto& t : threads) t.join();
-
-    // Determinar quais colunas manter
+    vector<int> keepIndices;
     for (int col = 0; col < numCols; ++col)
     {
-        if (nullCounts[col] >= thresholdCount) toKeep[col] = false;
+        if (nullCounts[col] < thresholdCount) keepIndices.push_back(col);
     }
 
-    // Obter nomes e tipos das colunas que serão mantidas
-    vector<string> colNames = input.getColumnNames();
     vector<string> newColNames;
     vector<ColumnType> newColTypes;
-    
-    for (int col = 0; col < numCols; ++col)
+    for (int col : keepIndices)
     {
-        if (toKeep[col])
-        {
-            newColNames.push_back(colNames[col]);
-            newColTypes.push_back(input.typeCol(col));
-        }
+        newColNames.push_back(input.getColumnNames()[col]);
+        newColTypes.push_back(input.typeCol(col));
     }
 
-    // Cria DataFrame sem as colunas esparsas
     DataFrame cleaned(newColNames, newColTypes);
-    for (int i = 0; i < numRows; ++i) 
+    for (int i = 0; i < numRows; ++i)
     {
         const auto& row = input.getRow(i);
         vector<Cell> newRow;
-        
-        for (int col = 0; col < numCols; ++col)
-        {
-            if (toKeep[col]) newRow.push_back(row[col]);
-        }
-        
-        cleaned.addRow(newRow);
+        newRow.reserve(keepIndices.size());
+        for (int col : keepIndices) newRow.push_back(row[col]);
+        cleaned.addRow(std::move(newRow));
     }
 
-    input = move(cleaned);
+    input = std::move(cleaned);
+}
+
+// Função auxiliar para remover colunas com muitos valores nulos
+void Handler::removeSparseColumns(DataFrame& input, double nullThreshold)
+{
+    const int numRows = input.size();
+    const int numCols = input.numCols();
+    const int thresholdCount = static_cast<int>(numRows * nullThreshold);
+
+    vector<int> nullCounts(numCols, 0);
+
+    for (int i = 0; i < numRows; ++i)
+    {
+        const auto& row = input.getRow(i);
+        for (int col = 0; col < numCols; ++col)
+        {
+            if (isNullCell(row[col])) nullCounts[col]++;
+        }
+    }
+
+    vector<int> keepIndices;
+    for (int col = 0; col < numCols; ++col)
+    {
+        if (nullCounts[col] < thresholdCount) keepIndices.push_back(col);
+    }
+
+    vector<string> newColNames;
+    vector<ColumnType> newColTypes;
+    for (int col : keepIndices)
+    {
+        newColNames.push_back(input.getColumnNames()[col]);
+        newColTypes.push_back(input.typeCol(col));
+    }
+
+    DataFrame cleaned(newColNames, newColTypes);
+    for (int i = 0; i < numRows; ++i)
+    {
+        const auto& row = input.getRow(i);
+        vector<Cell> newRow;
+        newRow.reserve(keepIndices.size());
+        for (int col : keepIndices) newRow.push_back(row[col]);
+        cleaned.addRow(std::move(newRow));
+    }
+
+    input = std::move(cleaned);
 }
 
 // Tratador para validação de dados
@@ -781,6 +678,9 @@ bool Handler::isValidCell(const Cell& cell, const ColumnValidationRules& rule)
     if (isNullCell(cell)) return true;
     
     string strVal = toString(cell);
+
+    // Ignora validação se o nome da coluna for "data"
+    if (toLower(rule.name) == "data") return true;
     
     // Validação para CEPs
     if (rule.isIslandCEP || rule.isRegionCEP)
