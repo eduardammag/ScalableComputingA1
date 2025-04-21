@@ -186,7 +186,7 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
         else if (origem.find("oms") != string::npos) 
         {
             grouping = handler.groupedDf(dfExtraido, "CEP", meanCol, numThreads, false);
-            handler.meanAlert(grouping,meanCol, numThreads );
+            handler.meanAlert(grouping,"Total_" + meanCol, numThreads );
             LoaderItem l_item{
 
                 std::move(grouping),
@@ -521,7 +521,6 @@ void executarPipeline(int numConsumidores) {
     
     // Aguarda tratadores
     for (auto& t : consumidoresTratadorMerge) t.join();
-    cout << "Terminei" << endl;
     
     {
         lock_guard<mutex> lock(tratLoadMutex);
