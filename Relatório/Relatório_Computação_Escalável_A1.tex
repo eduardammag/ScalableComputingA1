@@ -236,6 +236,7 @@ O loader tem uma função bastante simples que é enviar os dataframes tratados 
 
 \section{Dashboard}
 
+
 O dashboard é composto por cinco análises principais, cada uma com foco em aspectos distintos da saúde pública nas ilhas monitoradas. Temos 5 análises:
 
 \begin{itemize}
@@ -255,8 +256,16 @@ O dashboard é composto por cinco análises principais, cada uma com foco em asp
     Nesta análise fizemos uma regressão linear simples para estimar o número de internados com base na quantidade de vacinados. A intenção é investigar se o aumento na vacinação influencia a redução ou aumento nas internações.
 \end{itemize}
 
+\subsection*{Exemplos na prática}
+
+
+\includegraphics[width=12cm]{analises1.png}
+
+
+\includegraphics[width=12cm]{analiese2.png}
+
 \section{Pipeline}
-O Pipeline é feito de modo a organizar o fluxo de trabalho de maneira eficiente e paralela. O objetivo principal é o passo a passo dejado do ETL e a escolha da ordem e dos diferentes tratadores desejados. Além disso,essa arquitetura pode ser adaptada para qualquer outro contexto de processamento de dados.
+O Pipeline é feito de modo a organizar o fluxo de trabalho de maneira eficiente e paralela. O objetivo principal é o passo a passo desejado do ETL e a escolha da ordem e dos diferentes tratadores desejados. Além disso,essa arquitetura pode ser adaptada para qualquer outro contexto de processamento de dados.
 
 \subsection*{Lógica Produtor-Consumidor}
 De maneira geral, o paralelismo no pipeline se dá pela lógica de Produtor-Consumidor, da seguinte forma:
@@ -339,9 +348,9 @@ Isso permite que vários arquivos sejam processados \textbf{simultaneamente} por
 Na etapa de tratamento, a lógica produtor-consumidor se organiza da seguinte forma:
 
 \begin{itemize}
-    \item \textbf{Produtor:} as threads consumidoras da etapa de extração enviam os DataFrames processados para a fila extratorTratadorFila, que serve como ponte para o tratamento.
+    \item \textbf{Produtor:} as threads consumidoras da etapa de extração enviam os DataFrames processados para a fila extratorTratadorFila, que serve como ponte para o tratamento. 
 
-    \item \textbf{Consumidores:} múltiplas threads tratadoras (criadas na função executarPipeline) consomem os DataFrames dessa fila.
+    \item \textbf{Consumidores:} múltiplas threads tratadoras (criadas na função executarPipeline) consomem os DataFrames dessa fila. Além de ter vários agentes consumidores efetuando o tratamento dos arquivos, assim sendo paralelos entre os arquivos, as funções meanAlert, groupedDf e dataCleaner são paralelas nas linhas também, logo um agente consumidor de tratador se divide dentro de si mesmo para manipular várias partes do arquivos ao mesmo tempo, essa divisão é feita dividindo o número de threads para linhas e a quantidade de linhas para garantir o balanceamento.
 
     \item Cada consumidor-tratador:
     \begin{itemize}
@@ -357,10 +366,13 @@ Na etapa de tratamento, a lógica produtor-consumidor se organiza da seguinte fo
 \\
 
 \begin{itemize}
-    \item \textbf{} 
+    \item Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pontos fortes do paralelismo na extração.
+    \item Escalabilidade tanto horizontal quanto vertical, horizontalmente quando mais arquivos forem processados simultaneamente. Verticalmente, se os arquivos ficarem maiores (mais linhas), pois o processamento interno também se paraleliza.
+
+
     
 \end{itemize}
-Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pontos fortes do paralelismo na extração.
+
 
 \vspace{1em}
 
@@ -368,7 +380,8 @@ Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pont
 \subsubsection*{Pontos fracos específicos da abordagem}
 
 \begin{itemize}
-    \item \textbf{} 
+    \item Em máquinas com poucos núcleos, o desempenho pode piorar com mais threads, devido à saturação do CPU e do barramento de memória. 
+    \item A lógica aninhada de paralelismo complica o controle de sincronização, concorrência e debug.
 
 \end{itemize}
 
@@ -412,4 +425,16 @@ Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pont
 \end{itemize}
 
 \section{Análise de tempo de execução}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[height=10cm]{threads1-3.png} 
+    % \qquad
+    \includegraphics[height=10cm]{threads10-12.png} 
+    \caption{Testes com diferentes configurações de threads}
+    \label{fig:example}%
+\end{figure}
+
+Para demosntrar a corretude e eficiência do processo de paralelização temos acima um exemplo de uma sequência de testes com diferentes configurações de threads, assim como esperado no começo temos uma drástica diminuição no tempo, sendo praticamente reduzida metade do tempo, e no final pela saturação dos núcleos o ganho marginal de cada thread já se torna mais sútil. Uma observação muito importante, quando utilizamos 1 consumidor estamos na verdade utilizando no mínimo 3 threads, uma para cada etapa de extração, tratamento e carregamento que podem começar a trabal har antes mesmo do processo anteriror se encerrar totalmente, e analogamente quando testamos para 2 consumidores são no mínimo 6 threads, 2 para cada etapa.
+
 \end{document}
