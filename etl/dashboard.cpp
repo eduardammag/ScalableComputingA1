@@ -91,7 +91,7 @@ void exibirAlertasTratados(const string& caminhoArquivo) {
 }
 
 
-/////////////////////// ANÁLISE 2 /////////////////////////
+//////////////////////////////////////// ANÁLISE 2 /////////////////////////////////////////////////
 
 // Função para processar um único arquivo e armazenar os valores
 void processarArquivo(const string& caminhoArquivo) {
@@ -163,7 +163,7 @@ void calcularEstatisticasHospitalares() {
 
 
 
-/////////////////// ANÁLISE 3 /////////////////////////
+///////////////////////////////////////// ANÁLISE 3 //////////////////////////////////////////////
 
 // Função que processa um arquivo individual e armazena os dados por hospital
 void processarArquivoPorHospital(const string& caminhoArquivo) {
@@ -237,3 +237,35 @@ void calcularEstatisticasPorHospital() {
 
     cout << "==================================\n";
 }
+
+
+//////////////////////////////////////// ANÁLISE 4 ////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////// ANÁLISE 5 ////////////////////////////////////////////////
