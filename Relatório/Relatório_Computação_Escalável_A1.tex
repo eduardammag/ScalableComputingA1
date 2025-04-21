@@ -355,5 +355,25 @@ Isso permite que vários arquivos sejam processados \textbf{simultaneamente} por
 
 \subsection*{Dashboard}
 
+O dashboard é composto por cinco análises principais, cada uma com foco em aspectos distintos da saúde pública nas ilhas monitoradas. Temos 5 análises:
+
+\begin{itemize}
+    \item \textbf{Análise 1: Alerta semanal por CEP} \\
+    Esta análise processa os arquivos já tratados da OMS contendo alertas por CEP. Um alerta vermelho é emitido para os CEPs que apresentaram cinco ou mais ocorrências de alerta \texttt{True} ao longo da semana, enquanto os demais são classificados com alerta verde. O objetivo é sinalizar áreas críticas de forma direta e sumarizada.
+
+    \item \textbf{Análise 2: Estatísticas globais de internações} \\
+    Aqui, agregamos os dados de internação de todos os hospitais e calculamos estatísticas gerais como média e desvio padrão do número total de internados. O processamento é realizado de forma paralela utilizando múltiplas threads para ganho de desempenho.
+
+    \item \textbf{Análise 3: Estatísticas por hospital} \\
+    Similar à Análise 2, mas os cálculos são feitos individualmente por hospital. Para cada hospital, são reportadas a média e o desvio padrão dos internados. Essa análise permite identificar hospitais com padrões anormais em relação ao restante.
+
+    \item \textbf{Análise 4: [Título a definir]} \\
+    \textit{Espaço reservado para descrição da quarta análise.}
+
+    \item \textbf{Análise 5: [Título a definir]} \\
+    \textit{Espaço reservado para descrição da quinta análise.}
+\end{itemize}
+
+
 \section{Análise de tempo de execução}
 \end{document}
