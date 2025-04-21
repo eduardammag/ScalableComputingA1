@@ -21,12 +21,7 @@ int main() {
     DataFrame hosp_agrup = hand.groupedDf(hosp, "CEP" , "Internado", 4, true);
     DataFrame ss_agrup = hand.groupedDf(ss, "CEP" , "Vacinado", 4, true);
     auto merged = hand.mergeByCEP(oms_agrup, hosp_agrup, ss_agrup, "CEP", "Total_Internado", "Total_Vacinado", 4);
-    // hosp.display();  //mostra o df do hospital antes de criar a coluna de alertas vermelho e verde
-    hand.meanAlert(hosp, "Internado", 4);
-    // hand.meanAlert(oms, "Nº óbitos", 4);
     cout << "Deu certo" << endl;
-    //OBS:display comentado porque o arquivo é muito grande, se quiser rodar só pega o início e fecha com ctrl+C
-    // hosp.display();  //mostra o df do hospital com a coluna de alertas vermelho e verde
     
     int vezes = 1;
     for (int n = 1; n <= 4; n += 1) 
@@ -54,12 +49,10 @@ int main() {
 
     // ANÁLISE 4: Correlação entre vacinação e internação
     cout << "\n>> Análise 4: Correlação entre vacinação e internação\n";
-    // chamar a função de análise 4 aqui quando pronta
-
+    analyzeCorrelation();
     // ANÁLISE 5: Taxa de mortalidade por população
-    cout << "\n>> Análise 5: Taxa de mortalidade por CEP (óbitos / população)\n";
-    // chamar a função de análise 5 aqui quando pronta
-
+    cout << "\n>> Análise 5: Regressão Linear para estimar o número de internados com base na quantidade de vacinados./ população)\n";
+    regressionInternadoVsVacinado();
     cout << "\n============ FIM DO DASHBOARD ============\n";
 
     return 0;

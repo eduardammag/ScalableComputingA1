@@ -23,4 +23,7 @@ void processarArquivoPorHospital(const string& caminhoArquivo);
 // Função principal para calcular estatísticas por hospital
 void calcularEstatisticasPorHospital();
 
+
+void analyzeCorrelation();
+void regressionInternadoVsVacinado();
 #endif // DASHBOARD_HPP
