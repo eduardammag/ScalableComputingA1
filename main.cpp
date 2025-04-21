@@ -144,6 +144,29 @@ int main() {
         // cout << "Tempo: " << tempo/vezes << " segundos.\n";
     }
 
-    iniciarMonitoramento("database");
+    cout << "========== DASHBOARD ILHAS ==========\n";
+
+    // ANÁLISE 1: Alertas semanais por CEP
+    cout << "\n>> Análise 1: Alertas semanais por CEP\n";
+    exibirAlertasTratados("database_loader/saida_tratada_oms0.csv");
+
+    // ANÁLISE 2: Estatísticas gerais de internados (média e desvio padrão)
+    cout << "\n>> Análise 2: Estatísticas gerais dos hospitais\n";
+    calcularEstatisticasHospitalares();
+
+    // ANÁLISE 3: Estatísticas por hospital
+    cout << "\n>> Análise 3: Estatísticas individuais por hospital\n";
+    calcularEstatisticasPorHospital();
+
+    // ANÁLISE 4: Correlação entre vacinação e internação
+    cout << "\n>> Análise 4: Correlação entre vacinação e internação\n";
+    // chamar a função de análise 4 aqui quando pronta
+
+    // ANÁLISE 5: Taxa de mortalidade por população
+    cout << "\n>> Análise 5: Taxa de mortalidade por CEP (óbitos / população)\n";
+    // chamar a função de análise 5 aqui quando pronta
+
+    cout << "\n============ FIM DO DASHBOARD ============\n";
+
     return 0;
 }
