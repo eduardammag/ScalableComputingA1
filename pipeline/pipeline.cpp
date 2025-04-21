@@ -168,6 +168,8 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
             // se for hospital agrupa
             if (origem.find("hospital") != string::npos) 
             {
+                handler.dataCleaner(dfExtraido);
+                handler.validateDataFrame(dfExtraido, numThreads);
                 grouping = handler.groupedDf(dfExtraido, groupedCol, aggCol, numThreads, false);
                 
                 LoaderItem l_item{
@@ -185,6 +187,8 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
         // se é oms então agrupa e faz média
         else if (origem.find("oms") != string::npos) 
         {
+            handler.dataCleaner(dfExtraido);
+            handler.validateDataFrame(dfExtraido, numThreads);
             grouping = handler.groupedDf(dfExtraido, "CEP", meanCol, numThreads, false);
             handler.meanAlert(grouping,"Total_" + meanCol, numThreads );
             LoaderItem l_item{
@@ -244,6 +248,8 @@ void consumidorMerge(int id, DataFrame& dfB, DataFrame& dfC, const string& cepCo
         try {
             // processando o dataframe extraído;
             auto startCall = chrono::high_resolution_clock::now();
+            handler.dataCleaner(dfExtraido);
+            handler.validateDataFrame(dfExtraido, numThreads);
             dfExtraido =  handler.groupedDf(dfExtraido, cepColName, colA, numThreads, true);
             
             // fazendo cópia pois o merge modifica inplace
