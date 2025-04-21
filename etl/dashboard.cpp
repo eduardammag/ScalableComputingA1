@@ -11,153 +11,229 @@
 #include <map>
 #include <set>
 #include <algorithm>
+#include <string>
+#include <cmath>
 
 using namespace std;
 namespace fs = filesystem;
 
 mutex mtx;
-map<string, Estatisticas> mapaEstatisticas;
+map<int, vector<double>> dadosPorHospital;
+vector<double> todosInternados;
 
-string detectarFonte(const vector<string>& colunas) 
-{
-    // Verifica se todas as colunas necessárias estão presentes
-    bool temObitos = find(colunas.begin(), colunas.end(), "Nº óbitos") != colunas.end();
-    bool temCep = find(colunas.begin(), colunas.end(), "CEP da ilha") != colunas.end();
-    bool temPopulacao = find(colunas.begin(), colunas.end(), "População") != colunas.end();
-        
-    return (temObitos && temCep && temPopulacao) ? "oms" : "desconhecido";
-}
+////////////////// ANÁLISE 1 ////////////
 
-void processarArquivoCSV(const string& caminhoArquivo) {
-    try {
-        Extrator extrator;
-        DataFrame df = extrator.carregar(caminhoArquivo);
+// Função para exibir alertas da semana com base em frequência de 'True'
+void exibirAlertasTratados(const string& caminhoArquivo) {
+    Extrator extrator;
+    DataFrame df = extrator.carregar(caminhoArquivo);
 
-        if (df.empty())
-        {
-            cerr << "[AVISO] DataFrame vazio para o arquivo: " << caminhoArquivo << endl;
+    if (df.empty()) {
+        cerr << "[ERRO] DataFrame vazio: " << caminhoArquivo << endl;
+        return;
+    }
+
+    vector<string> colunasNecessarias = {"CEP", "Alertas"};
+    for (const auto& col : colunasNecessarias) {
+        if (df.colIdx(col) == static_cast<size_t>(-1)) {
+            cerr << "[ERRO] Coluna necessária não encontrada: " << col << endl;
             return;
         }
-        const vector<string>& colunas = df.getColumnNames();
-        string fonte = detectarFonte(colunas);
+    }
 
-        if (fonte != "oms") 
-        {
-            cerr << "[AVISO] Fonte desconhecida ou incompatível: " << caminhoArquivo << endl;
-            return;
-        }
+    // Mapa que conta quantas datas diferentes deram True por CEP
+    map<string, set<string>> datasTruePorCep;
 
-        // Verifique se todas as colunas necessárias existem
-        vector<string> colunasNecessarias = {"CEP da ilha", "Nº óbitos", "População"};
-        for (const auto& col : colunasNecessarias)
-        {
-            if (df.colIdx(col) == static_cast<size_t>(-1))
-            {
-                cerr << "[ERRO] Coluna necessária não encontrada: " << col << " no arquivo " << caminhoArquivo << endl;
-                return;
-            }
-        }
-        //Mapa local para reduzir contenção no mutex
-        map<string, Estatisticas> mapaLocal;
-
-        for (const auto& linha : df.getLinhas())
-        {
-            try 
-            {
-                string cepIlha = toString(linha[df.colIdx("CEP da ilha")]);
-                int obitos = static_cast<int>(toDouble(linha[df.colIdx("Nº óbitos")]));
-                int populacao = static_cast<int>(toDouble(linha[df.colIdx("População")]));
-
-                //Atualiza o mapa local sem lock
-                // lock_guard<mutex> lock(mtx);
-                Estatisticas& est = mapaEstatisticas[cepIlha];
-                est.totalObitos += obitos;
-                est.populacaoIlha = populacao;
-                est.totalRegistrosOMS++;
+    for (const auto& linha : df.getLinhas()) {
+        try {
+            string cep = toString(linha[df.colIdx("CEP")]);
+            string alertaStr = toString(linha[df.colIdx("Alertas")]);
             } catch (const exception& e) {
-                cerr << "[ERRO] Linha ignorada no arquivo " << caminhoArquivo << ": " << e.what() << endl;
-                continue;
-            }
+            cerr << "[AVISO] Erro ao processar linha: " << e.what() << endl;
+            continue;
         }
-        //Combina os resultados no mapa global com lock
-        lock_guard<mutex> loxk(mtx);
-        for (const auto& [cep, est] : mapaLocal)
-        {
-            mapaEstatisticas[cep].totalObitos += est.totalObitos;
-            mapaEstatisticas[cep].populacaoIlha = est.populacaoIlha;
-            mapaEstatisticas[cep].totalRegistrosOMS += est.totalRegistrosOMS;
-        }
-    } catch (const exception& e) {
-        cerr << "[ERRO CRÍTICO] Falha ao abrir ou processar: " << caminhoArquivo << " - " << e.what() << endl;
-        return;
     }
+
+    // Separar CEPs entre vermelho e verde
+    set<string> alertaVermelho;
+    set<string> alertaVerde;
+
+    // Pega todos os CEPs distintos do DataFrame
+    set<string> todosCEPs;
+    for (const auto& linha : df.getLinhas()) {
+        string cep = toString(linha[df.colIdx("CEP")]);
+        todosCEPs.insert(cep);
+    }
+
+    for (const auto& cep : todosCEPs) {
+        size_t qtdTrue = datasTruePorCep[cep].size();
+        if (qtdTrue > 4) {
+            alertaVermelho.insert(cep);
+        } else {
+            alertaVerde.insert(cep);
+        }
+    }
+
+    // Impressão final
+    auto formatarCEPs = [](const set<string>& ceps) -> string {
+        if (ceps.empty()) return "(nenhum)";
+        ostringstream oss;
+        for (auto it = ceps.begin(); it != ceps.end(); ++it) {
+            if (it != ceps.begin()) oss << ", ";
+            oss << *it;
+        }
+        return oss.str();
+    };
+
+    cout << "ALERTA DA SEMANA\n";
+    cout << "   CEP de ilhas de alerta vermelho: " << formatarCEPs(alertaVermelho) << "\n";
+    cout << "   CEP de ilhas de alerta verde: " << formatarCEPs(alertaVerde) << "\n";
 }
 
-void exibirDashboard() {
-    lock_guard<mutex> lock(mtx);
 
-    cout << "\n========== DASHBOARD DE ANALISE DE OBITOS (OMS) ==========\n";
-    cout << "   Comparando a media de obitos por populacao das ilhas\n";
-    cout << "   com os dados individuais de cada uma para gerar alertas.\n";
-    cout << "============================================================\n";
-    if (mapaEstatisticas.empty()) {
-        cout << "Nenhum dado disponível ainda.\n";
+/////////////////////// ANÁLISE 2 /////////////////////////
+
+// Função para processar um único arquivo e armazenar os valores
+void processarArquivo(const string& caminhoArquivo) {
+    ifstream file(caminhoArquivo);
+    if (!file.is_open()) {
+        cerr << "[ERRO] Não foi possível abrir o arquivo: " << caminhoArquivo << endl;
         return;
     }
 
-    double somaGlobalObitos = 0.0;
-    int totalIlhas = 0;
+    string linha;
+    getline(file, linha); // Ignora o cabeçalho
 
-    for (const auto& [cep, est] : mapaEstatisticas) {
-        if (est.totalRegistrosOMS > 0 && est.populacaoIlha > 0) {
-            somaGlobalObitos += static_cast<double>(est.totalObitos) / est.populacaoIlha;
-            totalIlhas++;
+    while (getline(file, linha)) {
+        istringstream ss(linha);
+        string id, valorStr;
+        getline(ss, id, ',');
+        getline(ss, valorStr, ',');
+
+        try {
+            double valor = stod(valorStr);
+            lock_guard<mutex> lock(mtx);
+            todosInternados.push_back(valor);
+        } catch (...) {
+            cerr << "[AVISO] Erro ao processar linha em: " << caminhoArquivo << endl;
+            continue;
         }
     }
 
-    double mediaGlobalObitos = (totalIlhas > 0) ? somaGlobalObitos / totalIlhas : 0.0;
-
-    for (const auto& [cep, est] : mapaEstatisticas) {
-        if (est.totalRegistrosOMS == 0 || est.populacaoIlha == 0) continue;
-
-        double mediaIlha = static_cast<double>(est.totalObitos) / est.populacaoIlha;
-        string alerta = (mediaIlha > mediaGlobalObitos) ? "VERMELHO" : "VERDE";
-
-        cout << "CEP da Ilha: " << cep << " | Alerta: " << alerta << "\n";
-    }
-
-    cout << "==========================================\n";
+    file.close();
 }
 
-void iniciarMonitoramento(const string& pasta) {
-    static set<string> arquivosProcessados;
+// Função principal que varre todos os arquivos hospitalares e computa estatísticas
+void calcularEstatisticasHospitalares() {
     vector<thread> threads;
 
-    {
-        lock_guard<mutex> lock(mtx);
-        mapaEstatisticas.clear();
-    }
-
-    bool novoArquivo = false;
-
-    for (const auto& entry : fs::directory_iterator(pasta)) {
-        string caminho = entry.path().string();
-        if (entry.path().extension() == ".csv" && arquivosProcessados.find(caminho) == arquivosProcessados.end()) {
-            threads.emplace_back([caminho]() {
-                processarArquivoCSV(caminho);
-            });
-            arquivosProcessados.insert(caminho);
-            novoArquivo = true;
-        }
+    for (int i = 0; i <= 10; ++i) {
+        stringstream ss;
+        ss << "database_loader/saida_tratada_hospital" << i << ".csv";
+        threads.emplace_back(processarArquivo, ss.str());
     }
 
     for (auto& t : threads) {
-        if (t.joinable()) t.join();
+        t.join();
     }
 
-    if (novoArquivo || arquivosProcessados.empty()) {
-        exibirDashboard();
-    } else {
-        cout << "[INFO] Nenhum novo arquivo para processar.\n";
+    if (todosInternados.empty()) {
+        cerr << "[ERRO] Nenhum dado carregado para estatísticas.\n";
+        return;
     }
+
+    // Cálculo da média
+    double soma = 0.0;
+    for (double x : todosInternados) soma += x;
+    double media = soma / todosInternados.size();
+
+    // Cálculo do desvio padrão
+    double variancia = 0.0;
+    for (double x : todosInternados) variancia += pow(x - media, 2);
+    variancia /= todosInternados.size();
+    double desvioPadrao = sqrt(variancia);
+
+    cout << "\n=== Estatísticas Hospitalares ===\n";
+    cout << "Total de registros: " << todosInternados.size() << "\n";
+    cout << "Média de internados: " << media << "\n";
+    cout << "Desvio padrão: " << desvioPadrao << "\n";
+    cout << "=================================\n";
+}
+
+
+
+
+/////////////////// ANÁLISE 3 /////////////////////////
+
+// Função que processa um arquivo individual e armazena os dados por hospital
+void processarArquivoPorHospital(const string& caminhoArquivo) {
+    ifstream file(caminhoArquivo);
+    if (!file.is_open()) {
+        cerr << "[ERRO] Não foi possível abrir o arquivo: " << caminhoArquivo << endl;
+        return;
+    }
+
+    string linha;
+    getline(file, linha); // Ignora o cabeçalho
+
+    while (getline(file, linha)) {
+        istringstream ss(linha);
+        string idStr, valorStr;
+        getline(ss, idStr, ',');
+        getline(ss, valorStr, ',');
+
+        try {
+            int id = stoi(idStr);
+            double valor = stod(valorStr);
+
+            lock_guard<mutex> lock(mtx);
+            dadosPorHospital[id].push_back(valor);
+        } catch (...) {
+            cerr << "[AVISO] Erro ao processar linha em: " << caminhoArquivo << endl;
+            continue;
+        }
+    }
+
+    file.close();
+}
+
+// Função principal para calcular estatísticas por hospital
+void calcularEstatisticasPorHospital() {
+    vector<thread> threads;
+
+    for (int i = 0; i <= 10; ++i) {
+        stringstream ss;
+        ss << "database_loader/saida_tratada_hospital" << i << ".csv";
+        threads.emplace_back(processarArquivoPorHospital, ss.str());
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    if (dadosPorHospital.empty()) {
+        cerr << "[ERRO] Nenhum dado carregado para estatísticas por hospital.\n";
+        return;
+    }
+
+    cout << "\n=== Estatísticas por Hospital ===\n";
+
+    for (const auto& [id, valores] : dadosPorHospital) {
+        if (valores.empty()) continue;
+
+        double soma = 0.0;
+        for (double v : valores) soma += v;
+        double media = soma / valores.size();
+
+        double variancia = 0.0;
+        for (double v : valores) variancia += pow(v - media, 2);
+        variancia /= valores.size();
+        double desvioPadrao = sqrt(variancia);
+
+        cout << "Hospital ID: " << id << "\n";
+        cout << "   Média de internados: " << media << "\n";
+        cout << "   Desvio padrão: " << desvioPadrao << "\n";
+    }
+
+    cout << "==================================\n";
 }
