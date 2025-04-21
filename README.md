@@ -41,12 +41,23 @@ make
 python3 simulator.py
 ```
 
-2. Compilar e executar o pipeline:
+2. Compilar e executar o pipeline com o timerTrigger:
 
 ```bash
 make
 ./programa
 ```
+ou
+
+```bash
+make run
+```
+
+  * Compilar e executar o pipeline com diferentes quantidades de threads:
+  ```bash
+  make run-threads
+  ```
+
 
 > A cada execução do mock, será gerada uma nova semana de dados com base na semana anterior. O controle é feito automaticamente pelo arquivo `simulator_state.json`.
 
