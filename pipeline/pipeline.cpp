@@ -1,4 +1,3 @@
-// pipeline.cpp
 #include "pipeline.hpp"
 #include "../etl/extrator.hpp"
 #include "../etl/loader.hpp"
@@ -10,6 +9,8 @@
 #include <thread>
 #include <atomic>
 #include <vector>
+
+#include <functional> // Para std::ref
 
 using namespace std;
 
@@ -32,15 +33,26 @@ mutex tratLoadMutex;
 condition_variable tratLoadCondVar;
 atomic<bool> tratadorEncerrado(false);
 
+// variáveis para a pipeline de merge
+queue<DataFrame> extratMergeFila;
+mutex mergeMtx;
+condition_variable condVarMerge;
+condition_variable extTratcondVarMerge;
+condition_variable tratLoadCondVarMerge;
+
+atomic<bool> encerradoMerge(false);
+
 // PRODUTOR: adiciona arquivos à fila
-void produtor(const vector<string>& arquivos) {
+void produtor(const vector<string>& arquivos, bool merge) {
     for (const auto& arquivo : arquivos) {
         {
             lock_guard<mutex> lock(filaMutex);
             filaArquivos.push(arquivo);
-            // cout<< "[Produtor] Arquivo enfileirado: " << arquivo << endl;
         }
-        condVar.notify_one(); // Avisa os consumidores
+
+        // Avisa os consumidores
+        if (merge){condVarMerge.notify_one();}
+        else{condVar.notify_one();}
     }
 
     // Sinaliza fim
@@ -48,21 +60,32 @@ void produtor(const vector<string>& arquivos) {
         lock_guard<mutex> lock(filaMutex);
         encerrado = true;
     }
-    condVar.notify_all();
+    if (merge){condVarMerge.notify_all();}
+        else{condVar.notify_all();}
 }
 
 // CONSUMIDOR: consome da fila e processa
-void consumidorExtrator(int id) {
+void consumidorExtrator(int id, bool merge) {
     Extrator extrator;
 
     while (true) {
         string arquivo;
 
         {
+            // esperando ter aruivos para extrair
             unique_lock<mutex> lock(filaMutex);
-            condVar.wait(lock, [] {
-                return !filaArquivos.empty() || encerrado;
-            });
+            if (merge)
+            {
+                condVarMerge.wait(lock, [] {
+                    return !filaArquivos.empty() || encerrado;
+                });
+            }
+            else
+            {
+                condVar.wait(lock, [] {
+                    return !filaArquivos.empty() || encerrado;
+                });
+            }
 
             if (filaArquivos.empty() && encerrado)
                 break;
@@ -76,7 +99,7 @@ void consumidorExtrator(int id) {
         try {
             // extrai os arquivos 
             DataFrame df = extrator.carregar(arquivo);
-            // cout<< "[Consumidor " << id << "] Processando: " << arquivo << endl;
+
             if (df.empty()) {
                 cerr << "[Consumidor " << id << "] DataFrame VAZIO após extração de " << arquivo << endl;
                 continue;
@@ -85,7 +108,12 @@ void consumidorExtrator(int id) {
                 cerr << "[Consumidor " << id << "] Inconsistência no DataFrame: " << arquivo << endl;
                 continue;
             }
-
+            if (merge)
+            {
+                unique_lock<mutex> lock(extTratMutex);
+                extratMergeFila.push(move(df));
+            }
+            else
             {
                 unique_lock<mutex> lock(extTratMutex);
                 extratorTratadorFila.push({arquivo, move(df)});
@@ -112,6 +140,7 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
         pair<string, DataFrame> item("hospital", DataFrame({"ID"}, {}));
 
         {
+            // espera ter arquivos extraídos
             unique_lock<mutex> lock(extTratMutex);
             extTratcondVar.wait(lock, [] {
                 return !extratorTratadorFila.empty() || extTratencerrado;
@@ -128,6 +157,7 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
             }
         }
 
+        // extrai a origem para conseguir fazer tratar diferente arquivos
         string origem = item.first;
         dfExtraido = item.second;
 
@@ -135,6 +165,7 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
 
         auto startCall = chrono::high_resolution_clock::now();
             
+            // se for hospital agrupa
             if (origem.find("hospital") != string::npos) 
             {
                 grouping = handler.groupedDf(dfExtraido, groupedCol, aggCol, numThreads, false);
@@ -144,24 +175,26 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
                     std::move(grouping),
                     "saida_tratada_hospital" + to_string(count++) + ".csv", id
             };
-            
+            // coloca na fila do loader o df tratado
             {
                 lock_guard<mutex> lock(tratLoadMutex);
                 tratadorLoaderFila.push(move(l_item));
             }
             tratLoadCondVar.notify_one();
         } 
+        // se é oms então agrupa e faz média
         else if (origem.find("oms") != string::npos) 
-
         {
             grouping = handler.groupedDf(dfExtraido, "CEP", meanCol, numThreads, false);
+            handler.meanAlert(grouping,meanCol, numThreads );
             LoaderItem l_item{
 
                 std::move(grouping),
-                "saida_tratada_oms" + to_string(count++) + ".csv",
+                "saida_tratada_oms" + to_string(count++) + to_string(numThreads) + ".csv",
                 id
             };
 
+            // adiciona na fila do loader
             {
                 lock_guard<mutex> lock(tratLoadMutex);
                 tratadorLoaderFila.push(move(l_item));
@@ -179,15 +212,91 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
     }
 }
 
+// consome fazendo o merge
+void consumidorMerge(int id, DataFrame& dfB, DataFrame& dfC, const string& cepColName,
+    const string& colA, const string& colB, const string& colC, int numThreads) 
+{
+    Handler handler;
+    
+    while (true) {
+        // df dummy só para inicializar o objeto
+        DataFrame dfExtraido({"ID"}, {});
+        
+        {
+            // espera ter arquivos para tratar
+            unique_lock<mutex> lock(mergeMtx);
+            extTratcondVarMerge.wait(lock, [] {
+                return !extratMergeFila.empty() || extTratencerrado;
+            });
+            
+            if (extratMergeFila.empty() && extTratencerrado)
+            break;
+            
+            if (!extratMergeFila.empty()) {
+                dfExtraido = extratMergeFila.front();
+                extratMergeFila.pop();
+            } else {
+                continue;
+            }
+        }
+
+
+        try {
+            // processando o dataframe extraído;
+            auto startCall = chrono::high_resolution_clock::now();
+            dfExtraido =  handler.groupedDf(dfExtraido, cepColName, colA, numThreads, true);
+            
+            // fazendo cópia pois o merge modifica inplace
+            DataFrame copyB = dfB;
+            DataFrame copyC = dfC;
+
+            auto merged = handler.mergeByCEP(dfExtraido, copyB, copyC, cepColName, colB, colC, numThreads); 
+            auto endCall = chrono::high_resolution_clock::now();
+            chrono::duration<double> durFunc = endCall - startCall;
+            int count = 0;
+            
+            for (const auto& [nome, dfMerge] : merged) 
+            {
+                LoaderItem item{
+                std::move(dfMerge),
+                "saida_merge_" + to_string(count++) + to_string(numThreads) + ".csv",
+                id
+                };
+                // colocando na fila do loader
+                {
+                lock_guard<mutex> lock(mergeMtx);
+                tratadorLoaderFila.push(move(item));
+                }
+                tratLoadCondVarMerge.notify_one();
+            }
+
+        } catch (const exception& e) {
+            cerr << "[Erro Consumidor " << id << "] ao processar " << e.what() << endl;
+        }
+    }
+}
+
+
 
 // CONSUMIDOR LOADER: consome da fila tratada e joga para o loader
-void consumidorLoader(int id) {
+void consumidorLoader(int id, bool merge) {
     while (true) {
         LoaderItem item = [&] {
             unique_lock<mutex> lock(tratLoadMutex);
-            tratLoadCondVar.wait(lock, [] {
-                return !tratadorLoaderFila.empty() || tratadorEncerrado;
-            });
+
+            // se for loarder de merge olha para a condição de merge
+            if (merge)
+            {
+                tratLoadCondVarMerge.wait(lock, [] {
+                    return !tratadorLoaderFila.empty() || tratadorEncerrado;
+                });
+            }
+            else
+            {
+                tratLoadCondVar.wait(lock, [] {
+                    return !tratadorLoaderFila.empty() || tratadorEncerrado;
+                });
+            }
 
             if (tratadorLoaderFila.empty() && tratadorEncerrado)
                 return LoaderItem{DataFrame({"ID"}, {}), "", -1};
@@ -208,20 +317,14 @@ void consumidorLoader(int id) {
 
         try {
             save_as_csv(item.df, "database_loader/" + item.nomeArquivoOriginal);
-            // cout<< "[Loader " << id << "] Arquivo salvo como: " << item.nomeArquivoOriginal << endl;
             if (item.df.empty()) {
                 cerr << "[Loader " << id << "] AVISO: DataFrame salvo está VAZIO!\n";
-            } else {
-                // cout<< "[Loader " << id << "] DataFrame salvo com " << item.df.size() 
-                    // << " linhas e " << item.df.numCols() << " colunas.\n";
-            }
+            } else {  }
 
         } catch (const exception& e) {
             cerr << "[Erro Loader " << id << "] ao salvar arquivo: " << e.what() << endl;
         }
     }
-
-    // cout<< "[Loader " << id << "] Encerrando.\n";
 }
 
 // Função que orquestra o pipeline
@@ -251,9 +354,8 @@ void executarPipeline(int numConsumidores) {
         swap(tratadorLoaderFila, empty);
     }  
 
-    // "secretary_data.db"
+    // arquivos
     vector<string> arquivos = {
-        // "databases_mock/secretary_data.db",
         "databases_mock/oms_mock.txt",
         "databases_mock/hospital_mock_1.csv",
         "databases_mock/hospital_mock_2.csv",
@@ -270,76 +372,176 @@ void executarPipeline(int numConsumidores) {
     // Variáveis para medição de tempo
     chrono::time_point<chrono::high_resolution_clock> start, end;
     chrono::duration<double> tempoTotal, tempoExtracao, tempoTratamento, tempoLoader;
-
+    
     // Início do pipeline
     start = chrono::high_resolution_clock::now();
 
     // ---- Estágio 1: Extração ----
     auto startExtracao = chrono::high_resolution_clock::now();
-
+    
     // Cria produtor e inializa-o
-    thread prod(produtor, arquivos);
-
+    thread prod(produtor, arquivos, false);
+    
     // Cria consumidores do extrator
     vector<thread> consumidoresExtrator;
     for (int i = 0; i < numConsumidores; ++i) {
-        consumidoresExtrator.emplace_back(consumidorExtrator, i + 1);
+        consumidoresExtrator.emplace_back(consumidorExtrator, i + 1, false);
     }
     // Aguarda o produtor
     prod.join();
-
+    
     // Aguarda extratores
     for (auto& t : consumidoresExtrator) t.join();
-
+    
     end = chrono::high_resolution_clock::now();
     tempoExtracao = end - startExtracao;
-
+    
     // ---- Estágio 2: Tratamento ----
     auto startTratamento = chrono::high_resolution_clock::now();
-
+    
     // Sinaliza que extração terminou e notifica tratadores
     {
         lock_guard<mutex> lock(extTratMutex);
         extTratencerrado = true;
     }
     extTratcondVar.notify_all();
-
+    
     // Cria consumidores dos tratadores
     vector<thread> consumidoresTratador;
     for (int i = 0; i < numConsumidores; ++i) 
     {
         consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", "ID_Hospital", "Internado", numConsumidores);
-
-        // consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", numConsumidores);
     }
 
     // Aguarda tratadores
     for (auto& t : consumidoresTratador) t.join();
-
+    
     end = chrono::high_resolution_clock::now();
     tempoTratamento = end - startTratamento;
-
+    
     // ---- Estágio 3: Loader ----
     auto startLoader = chrono::high_resolution_clock::now();
-
+    
     // Sinaliza fim do tratamento e notifica loaders
     {
         lock_guard<mutex> lock(tratLoadMutex);
         tratadorEncerrado = true;
     }
     tratLoadCondVar.notify_all();
-
+    
     // Cria consumidores finais (loader)
     vector<thread> consumidoresLoader;
     for (int i = 0; i < numConsumidores; ++i) {
-        consumidoresLoader.emplace_back(consumidorLoader, i + 1);
+        consumidoresLoader.emplace_back(consumidorLoader, i + 1, false);
     }
     // Aguarda loaders
     for (auto& t : consumidoresLoader) t.join();
-
     end = chrono::high_resolution_clock::now();
     tempoLoader = end - startLoader;
+    
+    //inicia pipeline do merge
+    
+    // Reinicia estados globais
+    encerrado = false;
+    extTratencerrado = false;
+    tratadorEncerrado = false;  
+    
+    // entre fila e extrator (Merge)
+    {
+        lock_guard<mutex> lock(filaMutex);
+        queue<string> empty;
+        swap(filaArquivos, empty);
+    }
+    // entre extrator e tratador (Merge)
+    {
+        lock_guard<mutex> lock(extTratMutex);
+        queue<DataFrame> empty;
+        swap(extratMergeFila, empty);
+    }
+    // entre tratador e loader (Merge)
+    {
+        lock_guard<mutex> lock(tratLoadMutex);
+        queue<LoaderItem> empty;
+        swap(tratadorLoaderFila, empty);
+    }  
+    
+    // arquivos variados para o merge
+    vector<string> arquivosMerge = {
+        "databases_mock/hospital_mock_1.csv",
+        "databases_mock/hospital_mock_2.csv",
+        "databases_mock/hospital_mock_3.csv",
+        "databases_mock/hospital_mock_4.csv",
+        "databases_mock/hospital_mock_5.csv",
+        "databases_mock/hospital_mock_6.csv",
+        "databases_mock/hospital_mock_7.csv",
+        "databases_mock/hospital_mock_8.csv",
+        "databases_mock/hospital_mock_9.csv",
+        "databases_mock/hospital_mock_10.csv"
+    };
+    Extrator extra;
+    Handler handler;
 
+    // arquivos fixos para o merge
+    DataFrame oms = extra.carregar("databases_mock/oms_mock.txt");
+    DataFrame oms_agrup = handler.groupedDf(oms, "CEP" , "Nº óbitos", 4, false);
+    
+    DataFrame ss = extra.carregar("databases_mock/secretary_data.db");
+    DataFrame ss_agrup = handler.groupedDf(ss, "CEP" , "Vacinado", 4, true);
+
+    auto startmerge = chrono::high_resolution_clock::now();
+    // Cria produtor e inializa-o
+    thread prodMerge(produtor, arquivosMerge, true);
+    
+    // Cria consumidores do extrator
+    vector<thread> consumidoresExtratorMerge;
+    for (int i = 0; i < numConsumidores; ++i) 
+    {
+        consumidoresExtratorMerge.emplace_back(consumidorExtrator, i + 1, true);
+    }
+    // Aguarda o produtor
+    prodMerge.join();
+    
+    // Aguarda extratores
+    for (auto& t : consumidoresExtratorMerge) t.join();
+    
+    // Sinaliza que extração terminou e notifica tratadores (Merge)
+    {
+        lock_guard<mutex> lock(extTratMutex);
+        extTratencerrado = true;
+    }
+    extTratcondVarMerge.notify_all();
+
+    // Cria consumidores dos tratadores
+    vector<thread> consumidoresTratadorMerge;
+    for (int i = 0; i < numConsumidores; ++i) 
+    {
+        consumidoresTratadorMerge.emplace_back(consumidorMerge, i + 1, std::ref(oms_agrup), 
+        std::ref(ss_agrup), "CEP","Internado", "Nº óbitos", "Total_Vacinado", numConsumidores);
+    }
+    
+    // Aguarda tratadores
+    for (auto& t : consumidoresTratadorMerge) t.join();
+    cout << "Terminei" << endl;
+    
+    {
+        lock_guard<mutex> lock(tratLoadMutex);
+        tratadorEncerrado = true;
+    }
+    tratLoadCondVarMerge.notify_all();
+    
+    vector<thread> consumidoresLoaderMerge;
+    for (int i = 0; i < numConsumidores; ++i) {
+        consumidoresLoaderMerge.emplace_back(consumidorLoader, i + 1, true);
+    }
+    
+    // Aguarda loaders
+    for (auto& t : consumidoresLoaderMerge) t.join();
+    
+    end = chrono::high_resolution_clock::now();
+    chrono::duration<double> tempomerge;
+    tempomerge = end - startmerge;
+    
+    
     // Tempo total
     tempoTotal = end - start;
     
@@ -349,5 +551,9 @@ void executarPipeline(int numConsumidores) {
     cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
     cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
     cout << "---------------------------------" << endl;
+    cout << "\n === Merge ===" << endl;
+    cout << "4. Merge:      " << tempomerge.count() << " segundos" << endl;
+
+
     cout << "Tempo Total:   " << tempoTotal.count() << " segundos\n" << endl;
 }
