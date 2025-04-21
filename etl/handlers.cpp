@@ -196,7 +196,7 @@ void Handler::meanAlert(DataFrame& input, const string& nameCol, int numThreads)
     for (auto& t : threads) t.join();
 
     // Adiciona a nova coluna ao DataFrame
-    input.addColumn("Alerta_" + nameCol, ColumnType::STRING, alertas, numThreads);
+    input.addColumn("Alertas" , ColumnType::STRING, alertas, numThreads);
 }
 
 //pega duas colunas ao mesmo tempo, uma para o agrupamento e outra para a agregação

@@ -37,7 +37,7 @@ int main() {
 
     // ANÁLISE 1: Alertas semanais por CEP
     cout << "\n>> Análise 1: Alertas semanais por CEP\n";
-    exibirAlertasTratados("database_loader/saida_tratada_oms0.csv");
+    exibirAlertasTratados("database_loader/saida_tratada_oms04.csv");
 
     // ANÁLISE 2: Estatísticas gerais de internados (média e desvio padrão)
     cout << "\n>> Análise 2: Estatísticas gerais dos hospitais\n";
@@ -51,7 +51,7 @@ int main() {
     cout << "\n>> Análise 4: Correlação entre vacinação e internação\n";
     analyzeCorrelation();
     // ANÁLISE 5: Taxa de mortalidade por população
-    cout << "\n>> Análise 5: Regressão Linear para estimar o número de internados com base na quantidade de vacinados./ população)\n";
+    cout << "\n>> Análise 5: Regressão Linear para estimar o número de internados com base na quantidade de vacinados.\n";
     regressionInternadoVsVacinado();
     cout << "\n============ FIM DO DASHBOARD ============\n";
 

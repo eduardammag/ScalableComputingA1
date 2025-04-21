@@ -23,7 +23,6 @@ vector<double> todosInternados;
 
 ////////////////// ANÁLISE 1 ////////////
 
-// Função para exibir alertas da semana com base em frequência de 'True'
 void exibirAlertasTratados(const string& caminhoArquivo) {
     Extrator extrator;
     DataFrame df = extrator.carregar(caminhoArquivo);
@@ -41,40 +40,25 @@ void exibirAlertasTratados(const string& caminhoArquivo) {
         }
     }
 
-    // Mapa que conta quantas datas diferentes deram True por CEP
-    map<string, set<string>> datasTruePorCep;
+    set<string> alertaVermelho;
+    set<string> alertaVerde;
 
     for (const auto& linha : df.getLinhas()) {
         try {
             string cep = toString(linha[df.colIdx("CEP")]);
-            string alertaStr = toString(linha[df.colIdx("Alertas")]);
-            } catch (const exception& e) {
+            string alerta = toString(linha[df.colIdx("Alertas")]);
+
+            if (alerta == "Vermelho") {
+                alertaVermelho.insert(cep);
+            } else if (alerta == "Verde") {
+                alertaVerde.insert(cep);
+            }
+        } catch (const exception& e) {
             cerr << "[AVISO] Erro ao processar linha: " << e.what() << endl;
             continue;
         }
     }
 
-    // Separar CEPs entre vermelho e verde
-    set<string> alertaVermelho;
-    set<string> alertaVerde;
-
-    // Pega todos os CEPs distintos do DataFrame
-    set<string> todosCEPs;
-    for (const auto& linha : df.getLinhas()) {
-        string cep = toString(linha[df.colIdx("CEP")]);
-        todosCEPs.insert(cep);
-    }
-
-    for (const auto& cep : todosCEPs) {
-        size_t qtdTrue = datasTruePorCep[cep].size();
-        if (qtdTrue > 4) {
-            alertaVermelho.insert(cep);
-        } else {
-            alertaVerde.insert(cep);
-        }
-    }
-
-    // Impressão final
     auto formatarCEPs = [](const set<string>& ceps) -> string {
         if (ceps.empty()) return "(nenhum)";
         ostringstream oss;
@@ -89,7 +73,6 @@ void exibirAlertasTratados(const string& caminhoArquivo) {
     cout << "   CEP de ilhas de alerta vermelho: " << formatarCEPs(alertaVermelho) << "\n";
     cout << "   CEP de ilhas de alerta verde: " << formatarCEPs(alertaVerde) << "\n";
 }
-
 
 //////////////////////////////////////// ANÁLISE 2 /////////////////////////////////////////////////
 
