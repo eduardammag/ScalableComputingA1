@@ -336,21 +336,36 @@ Isso permite que vários arquivos sejam processados \textbf{simultaneamente} por
 \end{itemize}
 
 \subsection*{Tratamento}
+Na etapa de tratamento, a lógica produtor-consumidor se organiza da seguinte forma:
+
+\begin{itemize}
+    \item \textbf{Produtor:} as threads consumidoras da etapa de extração enviam os DataFrames processados para a fila extratorTratadorFila, que serve como ponte para o tratamento.
+
+    \item \textbf{Consumidores:} múltiplas threads tratadoras (criadas na função executarPipeline) consomem os DataFrames dessa fila.
+
+    \item Cada consumidor-tratador:
+    \begin{itemize}
+        \item Executa o tratamento dos dados conforme a lógica definida (e.g., limpeza, transformação).
+
+        \item Insere os dados tratados na fila tratadorLoaderFila, que será consumida pela próxima etapa.
+        
+    \end{itemize}
+
+\end{itemize}
+
+\subsubsection*{Pontos fortes específicos da abordagem}
 \\
 
-
-
-\subsubsection*{Pontos fortes da abordagem}
-\\
 \begin{itemize}
     \item \textbf{} 
     
 \end{itemize}
+Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pontos fortes do paralelismo na extração.
 
 \vspace{1em}
 
 \\
-\subsubsection*{Pontos fracos da abordagem}
+\subsubsection*{Pontos fracos específicos da abordagem}
 
 \begin{itemize}
     \item \textbf{} 
@@ -360,28 +375,41 @@ Isso permite que vários arquivos sejam processados \textbf{simultaneamente} por
 
 \subsection*{Loader}
 \\
+Na etapa de carregamento (loader), o paralelismo também segue a lógica produtor-consumidor:
+
+\begin{itemize}
+    \item \textbf{Produtor:} as threads de tratamento inserem os dados tratados na fila tratadorLoaderFila.
+
+    \item \textbf{Consumidores:} múltiplas threads loader consomem essa fila para enviar os dados para o destino final (e.g., banco de dados).
+
+    \item Cada thread loader:
+    \begin{itemize}
+        \item Lê o item da fila.
+        \item Realiza a operação de carga dos dados.
+    \end{itemize}
+\end{itemize}
 
 
-
-\subsubsection*{Pontos fortes da abordagem}
+\subsubsection*{Pontos fortes específicos da abordagem}
 \\
 \begin{itemize}
-    \item \textbf{} 
+    \item \textbf{Aproveitamento de I/O paralelamente:} carregar dados em paralelo pode reduzir o tempo total quando o destino (como um banco) suporta múltiplas conexões simultâneas.
     
 \end{itemize}
+Além da escalabilidade, balanceamento e desacoplamento detalhados entre os pontos fortes do paralelismo na extração.
 
 \vspace{1em}
 
 \\
-\subsubsection*{Pontos fracos da abordagem}
+\subsubsection*{Pontos fracos específicos da abordagem}
 
 \begin{itemize}
-    \item \textbf{} 
+    \item \textbf{Concorrência com I/O externo:} se o destino de carga for um recurso compartilhado (como um banco com limite de conexões), muitas threads podem gerar contenção.
+
+    \item \textbf{Dificuldade de controle de erro e rollback:} paralelismo em carregamento pode dificultar o rastreamento e recuperação de falhas, especialmente se os dados forem carregados em lotes ou transações distintas.
+
 
 \end{itemize}
-
-
-
 
 \section{Análise de tempo de execução}
 \end{document}
