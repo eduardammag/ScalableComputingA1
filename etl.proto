@@ -1,0 +1,23 @@
+// etl.proto
+syntax = "proto3";
+
+package etl;
+
+// Mensagem enviada pelo simulador
+message Evento {
+  string id = 1;
+  string payload = 2;
+  int64 timestamp_envio = 3;
+}
+
+// Resposta com o resultado da análise
+message Resultado {
+  string id = 1;
+  string resultado = 2;
+  int64 timestamp_resposta = 3;
+}
+
+// Serviço exposto pelo ETL
+service ETLService {
+  rpc ProcessarEvento(Evento) returns (Resultado);
+}
