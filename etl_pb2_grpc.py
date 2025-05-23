@@ -26,8 +26,7 @@ if _version_not_supported:
 
 
 class ETLServiceStub(object):
-    """Serviço exposto pelo ETL
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
         """Constructor.
@@ -35,18 +34,17 @@ class ETLServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.ProcessarEvento = channel.unary_unary(
-                '/etl.ETLService/ProcessarEvento',
-                request_serializer=etl__pb2.Evento.SerializeToString,
-                response_deserializer=etl__pb2.Resultado.FromString,
+        self.EnviarDados = channel.unary_unary(
+                '/etl.ETLService/EnviarDados',
+                request_serializer=etl__pb2.DadosRequest.SerializeToString,
+                response_deserializer=etl__pb2.DadosResponse.FromString,
                 _registered_method=True)
 
 
 class ETLServiceServicer(object):
-    """Serviço exposto pelo ETL
-    """
+    """Missing associated documentation comment in .proto file."""
 
-    def ProcessarEvento(self, request, context):
+    def EnviarDados(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -55,10 +53,10 @@ class ETLServiceServicer(object):
 
 def add_ETLServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'ProcessarEvento': grpc.unary_unary_rpc_method_handler(
-                    servicer.ProcessarEvento,
-                    request_deserializer=etl__pb2.Evento.FromString,
-                    response_serializer=etl__pb2.Resultado.SerializeToString,
+            'EnviarDados': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnviarDados,
+                    request_deserializer=etl__pb2.DadosRequest.FromString,
+                    response_serializer=etl__pb2.DadosResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -69,11 +67,10 @@ def add_ETLServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class ETLService(object):
-    """Serviço exposto pelo ETL
-    """
+    """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def ProcessarEvento(request,
+    def EnviarDados(request,
             target,
             options=(),
             channel_credentials=None,
@@ -86,9 +83,9 @@ class ETLService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/etl.ETLService/ProcessarEvento',
-            etl__pb2.Evento.SerializeToString,
-            etl__pb2.Resultado.FromString,
+            '/etl.ETLService/EnviarDados',
+            etl__pb2.DadosRequest.SerializeToString,
+            etl__pb2.DadosResponse.FromString,
             options,
             channel_credentials,
             insecure,

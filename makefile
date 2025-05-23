@@ -22,9 +22,9 @@ PROGRAMA_OBJS = $(PROGRAMA_SRCS:.cpp=.o)
 PROGRAMA_TARGET = programa
 
 # Programa de threads (usa threadstime.cpp)
-THREADS_SRCS = threadstime.cpp
+THREADS_SRCS = threadsTime.cpp
 THREADS_OBJS = $(THREADS_SRCS:.cpp=.o)
-THREADS_TARGET = threads
+THREADS_TARGET = threadsTime
 
 # Target padrão
 all: $(PROGRAMA_TARGET)

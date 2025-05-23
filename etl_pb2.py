@@ -24,17 +24,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\tetl.proto\x12\x03\x65tl\">\n\x06\x45vento\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\t\x12\x17\n\x0ftimestamp_envio\x18\x03 \x01(\x03\"F\n\tResultado\x12\n\n\x02id\x18\x01 \x01(\t\x12\x11\n\tresultado\x18\x02 \x01(\t\x12\x1a\n\x12timestamp_resposta\x18\x03 \x01(\x03\x32<\n\nETLService\x12.\n\x0fProcessarEvento\x12\x0b.etl.Evento\x1a\x0e.etl.Resultadob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\tetl.proto\x12\x03\x65tl\"\x94\x01\n\x05Linha\x12\"\n\tlinha_oms\x18\x01 \x01(\x0b\x32\r.etl.LinhaOMSH\x00\x12,\n\x0elinha_hospital\x18\x02 \x01(\x0b\x32\x12.etl.LinhaHospitalH\x00\x12\x30\n\x10linha_secretaria\x18\x03 \x01(\x0b\x32\x14.etl.LinhaSecretariaH\x00\x42\x07\n\x05linha\"|\n\x08LinhaOMS\x12\x12\n\nnum_obitos\x18\x01 \x01(\x05\x12\x11\n\tpopulacao\x18\x02 \x01(\x05\x12\x0b\n\x03\x63\x65p\x18\x03 \x01(\x05\x12\x17\n\x0fnum_recuperados\x18\x04 \x01(\x05\x12\x15\n\rnum_vacinados\x18\x05 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x06 \x01(\t\"\xb7\x01\n\rLinhaHospital\x12\x13\n\x0bid_hospital\x18\x01 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\x12\x11\n\tinternado\x18\x03 \x01(\x08\x12\r\n\x05idade\x18\x04 \x01(\x05\x12\x0c\n\x04sexo\x18\x05 \x01(\x05\x12\x0b\n\x03\x63\x65p\x18\x06 \x01(\x05\x12\x10\n\x08sintoma1\x18\x07 \x01(\x08\x12\x10\n\x08sintoma2\x18\x08 \x01(\x08\x12\x10\n\x08sintoma3\x18\t \x01(\x08\x12\x10\n\x08sintoma4\x18\n \x01(\x08\"|\n\x0fLinhaSecretaria\x12\x13\n\x0b\x64iagnostico\x18\x01 \x01(\x08\x12\x10\n\x08vacinado\x18\x02 \x01(\x08\x12\x0b\n\x03\x63\x65p\x18\x03 \x01(\x05\x12\x14\n\x0c\x65scolaridade\x18\x04 \x01(\x05\x12\x11\n\tpopulacao\x18\x05 \x01(\x05\x12\x0c\n\x04\x64\x61ta\x18\x06 \x01(\t\"O\n\x0c\x44\x61\x64osRequest\x12\x0e\n\x06origem\x18\x01 \x01(\t\x12\x14\n\x0cnome_arquivo\x18\x02 \x01(\t\x12\x19\n\x05\x64\x61\x64os\x18\x03 \x03(\x0b\x32\n.etl.Linha\"!\n\rDadosResponse\x12\x10\n\x08mensagem\x18\x01 \x01(\t2B\n\nETLService\x12\x34\n\x0b\x45nviarDados\x12\x11.etl.DadosRequest\x1a\x12.etl.DadosResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'etl_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_EVENTO']._serialized_start=18
-  _globals['_EVENTO']._serialized_end=80
-  _globals['_RESULTADO']._serialized_start=82
-  _globals['_RESULTADO']._serialized_end=152
-  _globals['_ETLSERVICE']._serialized_start=154
-  _globals['_ETLSERVICE']._serialized_end=214
+  _globals['_LINHA']._serialized_start=19
+  _globals['_LINHA']._serialized_end=167
+  _globals['_LINHAOMS']._serialized_start=169
+  _globals['_LINHAOMS']._serialized_end=293
+  _globals['_LINHAHOSPITAL']._serialized_start=296
+  _globals['_LINHAHOSPITAL']._serialized_end=479
+  _globals['_LINHASECRETARIA']._serialized_start=481
+  _globals['_LINHASECRETARIA']._serialized_end=605
+  _globals['_DADOSREQUEST']._serialized_start=607
+  _globals['_DADOSREQUEST']._serialized_end=686
+  _globals['_DADOSRESPONSE']._serialized_start=688
+  _globals['_DADOSRESPONSE']._serialized_end=721
+  _globals['_ETLSERVICE']._serialized_start=723
+  _globals['_ETLSERVICE']._serialized_end=789
 # @@protoc_insertion_point(module_scope)

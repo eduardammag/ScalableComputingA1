@@ -1,23 +1,57 @@
-// etl.proto
 syntax = "proto3";
 
 package etl;
 
-// Mensagem enviada pelo simulador
-message Evento {
-  string id = 1;
-  string payload = 2;
-  int64 timestamp_envio = 3;
-}
-
-// Resposta com o resultado da análise
-message Resultado {
-  string id = 1;
-  string resultado = 2;
-  int64 timestamp_resposta = 3;
-}
-
-// Serviço exposto pelo ETL
 service ETLService {
-  rpc ProcessarEvento(Evento) returns (Resultado);
+  rpc EnviarDados (DadosRequest) returns (DadosResponse);
+}
+
+message Linha {
+  oneof linha {
+    LinhaOMS linha_oms = 1;
+    LinhaHospital linha_hospital = 2;
+    LinhaSecretaria linha_secretaria = 3;
+  }
+}
+
+message LinhaOMS {
+  int32 num_obitos = 1;
+  int32 populacao = 2;
+  int32 cep = 3;
+  int32 num_recuperados = 4;
+  int32 num_vacinados = 5;
+  string data = 6;
+}
+
+message LinhaHospital {
+  int32 id_hospital = 1;
+  string data = 2;
+  bool internado = 3;
+  int32 idade = 4;
+  int32 sexo = 5;
+  int32 cep = 6;
+  bool sintoma1 = 7;
+  bool sintoma2 = 8;
+  bool sintoma3 = 9;
+  bool sintoma4 = 10;
+}
+
+message LinhaSecretaria {
+  bool diagnostico = 1;
+  bool vacinado = 2;
+  int32 cep = 3;
+  int32 escolaridade = 4;
+  int32 populacao = 5;
+  string data = 6;
+}
+
+// Cada request representa um único arquivo, com origem + nome do arquivo + todas as linhas dele
+message DadosRequest {
+  string origem = 1;        // "oms", "hospital", "secretaria"
+  string nome_arquivo = 2;
+  repeated Linha dados = 3;
+}
+
+message DadosResponse {
+  string mensagem = 1;
 }
