@@ -76,10 +76,10 @@ def main():
         print(f"Resposta OMS: {response.mensagem}")
 
         # Enviar hospitais (vários arquivos simulados)
-        for i in range(1, 4):
-            linhas_hospital = gerar_dados_hospital(random.randint(500, 800))
-            response = stub.EnviarDados(etl_pb2.DadosRequest(origem="hospital", nome_arquivo=f"hospital_virtual_{i}.csv", dados=linhas_hospital))
-            print(f"Resposta Hospital {i}: {response.mensagem}")
+        # for i in range(1, 4):
+        linhas_hospital = gerar_dados_hospital(random.randint(500, 800))
+        response = stub.EnviarDados(etl_pb2.DadosRequest(origem="hospital", nome_arquivo=f"hospital_virtual.csv", dados=linhas_hospital))
+        print(f"Resposta Hospital: {response.mensagem}")
 
         # Enviar secretaria
         linhas_secretaria = gerar_dados_secretaria(2000)

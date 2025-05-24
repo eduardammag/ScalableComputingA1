@@ -521,8 +521,8 @@ void executarPipeline(int numConsumidores) {
     vector<thread> consumidoresTratadorMerge;
     for (int i = 0; i < numConsumidores; ++i) 
     {
-        consumidoresTratadorMerge.emplace_back(consumidorMerge, i + 1, std::ref(oms_agrup), 
-        std::ref(ss_agrup), "CEP","Internado", "Nº óbitos", "Total_Vacinado", numConsumidores);
+        consumidoresTratadorMerge.emplace_back(consumidorMerge, i + 1, ref(oms_agrup), 
+        ref(ss_agrup), "CEP","Internado", "Nº óbitos", "Total_Vacinado", numConsumidores);
     }
     
     // Aguarda tratadores

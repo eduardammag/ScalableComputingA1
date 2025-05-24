@@ -11,4 +11,3 @@ void executarPipeline(int numConsumidores);
 
 // Funções produtor e consumidor (podem ser usadas para testes ou extensões)
 void produtor(const std::vector<std::string>& arquivos, bool);
-void consumidor(int id);
