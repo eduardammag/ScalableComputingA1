@@ -7,7 +7,6 @@ import optparse
 
 import etl_pb2
 import etl_pb2_grpc
-# from etl_pipeline import executarPipeline
 
 # Dicionário para armazenar arquivos temporários por tipo de origem
 arquivos_recebidos = {}
