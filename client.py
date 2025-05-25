@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import etl_pb2
 import etl_pb2_grpc
 
-SERVER_ADDRESS = "localhost:50051"
+SERVER_ADDRESS = "192.168.0.14:50051"
 
 cep_ilhas = list(range(11, 31))
 cep_regioes = [int(f"{ilha:02d}{r:03d}") for ilha in cep_ilhas for r in range(1, 6)]

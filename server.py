@@ -102,7 +102,7 @@ class PipelineServicer(etl_pb2_grpc.ETLServiceServicer):
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     etl_pb2_grpc.add_ETLServiceServicer_to_server(PipelineServicer(), server)
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port('0.0.0.0:50051')  # Escuta em todas as interfaces
     server.start()
     print("Servidor gRPC rodando na porta 50051...")
     server.wait_for_termination()
