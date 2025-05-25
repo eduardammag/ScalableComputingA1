@@ -1,0 +1,125 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{Implementação de RPC}
+\author{Mariana Fernandes Rocha}
+\date{May 2025}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+
+        \vspace{1cm}
+        \begin{minipage}{0.45\textwidth}
+            \centering
+            \includegraphics[width=1.2\textwidth]{logo_fgv.png}    
+        \end{minipage}
+        \vspace{2cm}
+
+        \rule{1\textwidth}{0.4pt} \\ % Linha horizontal personalizada
+        \vspace{0.3cm}
+        {\Huge \textbf{Implementação RPC}} \\
+        \vspace{0.2cm}
+        \vspace{0.5cm}\\
+        {\Large \textbf{Computação Escalável}}\\
+        \rule{1\textwidth}{0.4pt} % Linha horizontal personalizada
+
+
+        \vspace{0.5cm}
+        {\Large \textbf{FGV EMAp}} \\
+        \vspace{2cm}
+        
+        
+
+        
+        
+        % % Unidade e curso
+        % {\Large \textbf{FGV EMAp}}\\[2cm]
+        
+        % Autores
+        {\large 
+            \textbf{Ana Júlia Amaro Pereira Rocha} \\ 
+            \textbf{Maria Eduarda Mesquita Magalhães}\\
+            \textbf{Mariana Fernandes Rocha} \\
+            \textbf{Paula Eduarda de Lima}}\\[1.5cm]
+        
+        % Informações adicionais
+        {\large 
+            Ciência de Dados e Inteligência Artificial \\ 
+            5º Período}\\[2cm]
+        
+         % Data
+        \vfill
+        {\large Rio de Janeiro, 2025}
+
+        
+    \end{center}
+\end{titlepage}
+
+
+\tableofcontents
+
+\newpage
+
+
+\section{Introdução}
+Este projeto tem como objetivo integrar um sistema de comunicação entre processos distribuídos na implementação de pipeline já confeccionada pelo grupo, utilizando o paradigma de Chamada de Procedimento Remoto (RPC - Remote Procedure Call). Através dessa abordagem, é possível invocar funções em servidores remotos como se fossem locais, abstraindo detalhes de rede e facilitando a integração entre diferentes componentes de um sistema distribuído. A implementação adotada busca demonstrar a eficiência e escalabilidade do modelo RPC no contexto de uma pipeline de processamento de dados simulados.
+
+\section{Cliente}
+O cliente desenvolvido para esta aplicação tem como função principal simular o envio de dados a um servidor ETL por meio do protocolo gRPC. Ele foi implementado em Python e utiliza as interfaces geradas a partir do arquivo .proto, o qual define a estrutura das mensagens e os serviços disponíveis.
+
+O envio dos dados é realizado por meio da chamada ao método remoto EnviarDados, que recebe uma mensagem do tipo DadosRequest. Esta mensagem contém três campos: o nome da origem dos dados (como "oms", "hospital" ou "secretaria"), o nome do arquivo simulado, e uma lista de registros. Cada registro é representado por uma mensagem do tipo Linha, que encapsula, por meio de um campo oneof, exatamente um dos três formatos específicos: LinhaOMS, LinhaHospital ou LinhaSecretaria.
+
+Os dados são gerados aleatoriamente por funções auxiliares que simulam diferentes fontes de dados. A função gerar\_dados\_oms cria registros com informações populacionais e sanitárias de cada ilha, incluindo número de óbitos, recuperados, vacinados e data da coleta. A função gerar\_dados\_hospital simula internações hospitalares, com dados como idade, sexo, sintomas e localização por CEP. Por fim, gerar\_dados\_secretaria produz registros com informações agregadas por região, incluindo escolaridade, população, diagnóstico e status de vacinação.
+
+Cada tipo de dado é enviado separadamente ao servidor. O cliente imprime a resposta de confirmação para cada envio, permitindo verificar se o servidor recebeu e processou corretamente os dados. Essa abordagem permite validar o fluxo completo de comunicação e integrar a simulação de dados à pipeline de processamento distribuído.
+
+\section{Servidor}
+O servidor gRPC foi desenvolvido em Python com o objetivo de receber dados simulados provenientes de diferentes origens — OMS, hospitais e secretarias de saúde — e acionar uma etapa posterior de processamento. Para isso, utiliza a biblioteca grpc e implementa o serviço ETLService, conforme definido no arquivo de definição .proto.
+
+A principal classe do servidor, PipelineServicer, herda de ETLServiceServicer e implementa o método EnviarDados. Esse método é invocado remotamente pelos clientes e recebe uma requisição do tipo DadosRequest, contendo a origem dos dados, um nome de arquivo representativo e uma lista de registros. Cada registro, recebido como uma instância do tipo Linha, é convertido para um dicionário Python (formato JSON), dependendo do campo oneof ativo (linha\_oms, linha\_hospital ou linha\_secretaria).
+
+Os dados recebidos são então serializados e salvos em arquivos temporários nomeados de acordo com a origem (temp\_oms.json, temp\_hospital.json, etc.). O servidor utiliza um dicionário compartilhado protegido por um lock (arquivos\_recebidos) para armazenar o caminho dos arquivos recebidos até que os três tipos esperados estejam presentes.
+
+Uma vez que todos os três conjuntos de dados tenham sido recebidos com sucesso, o servidor dispara a execução de um programa externo (programa.exe) por meio do módulo subprocess. Este programa é responsável por processar os dados agregados em uma pipeline de transformação mais robusta. Após a execução, o servidor limpa os arquivos temporários armazenados e está pronto para uma nova rodada de ingestão de dados.
+
+O servidor é inicializado com uma ThreadPoolExecutor, permitindo o atendimento simultâneo de múltiplas requisições. Ele escuta na porta 50051 e permanece em execução contínua, aguardando chamadas dos clientes. Essa estrutura garante desacoplamento entre o envio de dados e o processamento, além de permitir escalabilidade futura, com eventuais adaptações para ambientes distribuídos ou balanceamento de carga.
+
+\section{Vantagens e Limitações}
+\subsection{Vantagens}
+
+\begin{itemize}
+    \item \textbf{Eficiência de comunicação:} A utilização de gRPC com HTTP/2 e serialização binária via Protocol Buffers proporciona uma comunicação eficiente, com menor latência e uso reduzido de largura de banda, especialmente vantajoso para o envio de grandes volumes de dados.
+
+    \item \textbf{Validação automática de tipos:} A definição rigorosa dos dados no arquivo \texttt{.proto} garante integridade e validação automática, reduzindo erros comuns de integração entre sistemas cliente e servidor.
+
+    \item \textbf{Tratamento especializado por origem:} O uso do campo \texttt{oneof} permite distinguir facilmente os tipos de dados (OMS, hospital, secretaria), possibilitando lógica personalizada para cada caso no servidor.
+
+    \item \textbf{Execução condicional da pipeline:} A estratégia de aguardar o recebimento dos três tipos de dados antes de executar a pipeline garante consistência e evita processamento parcial, assegurando que os dados estejam completos.
+
+    \item \textbf{Concorrência segura:} O uso de um \texttt{lock} para controle de acesso ao dicionário de arquivos compartilhado garante segurança em ambientes com múltiplas conexões simultâneas.
+
+    \item \textbf{Simplicidade de implementação:} A escrita de arquivos temporários em formato JSON é simples, de fácil debug e compatível com diversas linguagens e ferramentas externas.
+
+\end{itemize}
+
+\subsection{Limitações}
+
+\begin{itemize}
+    \item \textbf{Dependência dos três conjuntos de dados:} A execução da pipeline depende do recebimento completo dos dados de OMS, hospital e secretaria. A ausência de qualquer um deles impede o processamento, o que pode levar à ociosidade.
+
+
+    \item \textbf{Execução síncrona da pipeline:} A execução da pipeline bloqueia a thread responsável até sua finalização, o que pode afetar a escalabilidade e o desempenho em cenários de alta concorrência.
+
+    \item \textbf{Escalabilidade limitada:} A arquitetura atual está centralizada em um único servidor, dificultando a distribuição de carga ou a tolerância a falhas, o que limita sua aplicação em ambientes produtivos de larga escala.
+
+    \item \textbf{Falta de persistência intermediária:} Os dados não são armazenados em repositórios duráveis (como bancos de dados), o que pode comprometer a recuperação em caso de falha no servidor ou reinicialização.
+
+\end{itemize}
+
+
+\section{Resultados}
+
+
+\end{document}
