@@ -4,8 +4,10 @@
 #include <iostream>
 #include <filesystem>
 #include <sqlite3.h>
-#include <cctype> 
+#include <cctype>
+#include "../json.hpp"
 
+using json = nlohmann::json;
 using std::string, std::vector, std::ifstream, std::stringstream, std::runtime_error;
 // using std::stoi, std::stod;
 
@@ -29,6 +31,7 @@ DataFrame Extrator::carregar(const string& caminhoArquivo)
     if (ext == "csv") return carregarCSVouTXT(caminhoArquivo, ',');         // CSV usa vírgula
     else if (ext == "txt") return carregarCSVouTXT(caminhoArquivo, '\t');   // TXT usa tabulação
     else if (ext == "sqlite" || ext == "db") return carregarSQLite(caminhoArquivo); // Banco SQLite
+    else if (ext == "json") return carregarJSON(caminhoArquivo);  // json
     else throw runtime_error("Formato não suportado: " + ext);       // Erro para outros formatos
 }
 
@@ -168,6 +171,58 @@ DataFrame Extrator::carregarCSVouTXT(const string& caminho, char separador)
         df.addRow(row);
     }
     return df;    
+}
+
+DataFrame Extrator::carregarJSON(const string& caminhoArquivo)
+{
+    ifstream arquivo(caminhoArquivo);
+    if (!arquivo.is_open()) {
+        throw runtime_error("Não foi possível abrir o arquivo JSON: " + caminhoArquivo);
+    }
+
+    json j;
+    arquivo >> j;
+
+    if (!j.is_array()) {
+        throw runtime_error("O arquivo JSON deve conter uma lista de objetos.");
+    }
+
+    vector<string> colunas;
+    vector<ColumnType> tipos;
+    vector<vector<Cell>> linhas;
+
+    // Detecta colunas com base no primeiro objeto
+    if (!j.empty() && j[0].is_object()) {
+        for (auto& [chave, valor] : j[0].items()) {
+            colunas.push_back(chave);
+            if (valor.is_number_integer()) tipos.push_back(ColumnType::INTEGER);
+            else if (valor.is_number_float()) tipos.push_back(ColumnType::DOUBLE);
+            else tipos.push_back(ColumnType::STRING);
+        }
+    }
+
+    for (const auto& obj : j) {
+        vector<Cell> linha;
+        for (size_t i = 0; i < colunas.size(); ++i) {
+            const string& key = colunas[i];
+            if (!obj.contains(key) || obj[key].is_null()) {
+                linha.push_back("");
+            } else if (tipos[i] == ColumnType::INTEGER) {
+                linha.push_back(obj[key].get<int>());
+            } else if (tipos[i] == ColumnType::DOUBLE) {
+                linha.push_back(obj[key].get<double>());
+            } else {
+                linha.push_back(obj[key].is_string() ? obj[key].get<string>() : obj[key].dump());
+            }
+        }
+        linhas.push_back(linha);
+    }
+
+    DataFrame df(colunas, tipos);
+    for (const auto& linha : linhas) {
+        df.addRow(linha);
+    }
+    return df;
 }
 
 // Função auxiliar: infere os tipos de colunas com base nos valores de uma linha

@@ -272,8 +272,14 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
     const int colIdxGroup = input.colIdx(groupedCol);
     const int colIdxAgg = input.colIdx(aggCol);
     const int numRows = input.size();
+    // std::cout << groupedCol << " e " << aggCol << std::endl;
+    // std::cout << colIdxGroup << " e " << colIdxAgg << std::endl;
 
-    if (numThreads == 0) throw invalid_argument("Número de threads deve ser maior que zero.");
+    if (colIdxGroup < 0 || colIdxAgg < 0)
+        throw std::invalid_argument("Coluna de agrupamento ou agregação não encontrada no DataFrame.");
+
+    if (numThreads <= 0)
+        throw std::invalid_argument("Número de threads deve ser maior que zero.");
 
     const int chunkSize = (numRows + numThreads - 1) / numThreads;
 
@@ -282,87 +288,99 @@ DataFrame Handler::groupedDf(const DataFrame& input, const string& groupedCol, c
     vector<double> aggValues(numRows);
     vector<thread> threads;
 
-    for (int t = 0; t < numThreads; ++t) 
-    {
-        threads.emplace_back([&, t]()
-{
-    try {
-        const int start = t * chunkSize;
-        const int end = min(start + chunkSize, numRows);
+    for (int t = 0; t < numThreads; ++t) {
+        threads.emplace_back([&, t]() {
+            try {
+                const int start = t * chunkSize;
+                const int end = min(start + chunkSize, numRows);
 
-        for (int i = start; i < end; ++i)
-        {
-            const auto& row = input.getRow(i);
-            const Cell& groupCell = row[colIdxGroup];
-            const Cell& aggCell = row[colIdxAgg];
+                for (int i = start; i < end; ++i) {
+                    const auto& row = input.getRow(i);
 
-            int groupKey;
-            if (holds_alternative<int>(groupCell)) {
-                groupKey = get<int>(groupCell);
-            } else if (holds_alternative<double>(groupCell)) {
-                groupKey = static_cast<int>(get<double>(groupCell));
-            } else if (holds_alternative<string>(groupCell)) {
-                groupKey = stoi(get<string>(groupCell));
-            } else {
-                throw runtime_error("Tipo inválido em coluna de agrupamento.");
+                    if (colIdxGroup >= int(row.size()) || colIdxAgg >= int(row.size()))
+                        throw runtime_error("Índice fora do intervalo em linha do DataFrame.");
+
+                    const Cell& groupCell = row[colIdxGroup];
+                    const Cell& aggCell = row[colIdxAgg];
+
+                    int groupKey;
+
+                    // Conversão segura do valor da coluna de agrupamento para int
+                    if (holds_alternative<int>(groupCell)) {
+                        groupKey = get<int>(groupCell);
+                    } else if (holds_alternative<double>(groupCell)) {
+                        groupKey = static_cast<int>(get<double>(groupCell));
+                    } else if (holds_alternative<string>(groupCell)) {
+                        try {
+                            groupKey = stoi(get<string>(groupCell));
+                        } catch (...) {
+                            throw runtime_error("Falha ao converter string para int em coluna de agrupamento.");
+                        }
+                    } else {
+                        throw runtime_error("Tipo inválido em coluna de agrupamento.");
+                    }
+
+                    if (groupIlha) {
+                        string groupStr;
+                        if (holds_alternative<string>(groupCell)) {
+                            groupStr = get<string>(groupCell);
+                        } else if (holds_alternative<int>(groupCell)) {
+                            groupStr = to_string(get<int>(groupCell));
+                        } else if (holds_alternative<double>(groupCell)) {
+                            groupStr = to_string(static_cast<int>(get<double>(groupCell)));
+                        } else {
+                            throw runtime_error("Tipo inválido para extração do código da ilha.");
+                        }
+
+                        string islandCodeStr = extractIslandCode(groupStr);
+                        try {
+                            groupKeys[i] = stoi(islandCodeStr);
+                        } catch (...) {
+                            throw runtime_error("Falha ao converter código de ilha para inteiro.");
+                        }
+                    } else {
+                        groupKeys[i] = groupKey;
+                    }
+
+                    aggValues[i] = toDouble(aggCell);
+                }
+            } catch (const std::exception& e) {
+                cerr << "[Erro Thread Fase 1 " << t << "] " << e.what() << endl;
             }
-
-            if (groupIlha) {
-                string islandCodeStr = extractIslandCode(groupCell);
-                groupKeys[i] = stoi(islandCodeStr);
-            } else {
-                groupKeys[i] = groupKey;
-            }
-
-            aggValues[i] = toDouble(aggCell);
-        }
-    } catch (const std::exception& e) {
-        cerr << "[Erro Thread Fase 1 " << t << "] " << e.what() << endl;
+        });
     }
-});
-    
-    }
-    
+
     for (auto& thread : threads) thread.join();
     threads.clear();
-    
+
     // Fase 2: Agregação paralela
     vector<unordered_map<int, double>> partialSums(numThreads);
-    
-    std::mutex sumMutex;
 
-    for (int t = 0; t < numThreads; ++t)
-    {
-        threads.emplace_back([&, t]()
-        {
-            const int start = t* chunkSize;
+    for (int t = 0; t < numThreads; ++t) {
+        threads.emplace_back([&, t]() {
+            const int start = t * chunkSize;
             const int end = min(start + chunkSize, numRows);
-            
-            for (int i = start; i < end; ++i)
-            {
+
+            for (int i = start; i < end; ++i) {
                 partialSums[t][groupKeys[i]] += aggValues[i];
             }
         });
     }
+
     for (auto& thread : threads) thread.join();
-    
-    //Combinando resultados
+
+    // Combinando resultados
     unordered_map<int, double> totalSums;
-    for (const auto& map : partialSums)
-    {
-        for (const auto& [key, value] : map)
-        {
+    for (const auto& map : partialSums) {
+        for (const auto& [key, value] : map) {
             totalSums[key] += value;
         }
     }
 
-    //Construindo o DataFrame de saída
-    DataFrame output({groupedCol, "Total_" + aggCol}, { ColumnType::STRING, ColumnType::DOUBLE});
-    std::mutex outputMutex;
+    // Construindo o DataFrame de saída
+    DataFrame output({groupedCol, "Total_" + aggCol}, { ColumnType::STRING, ColumnType::DOUBLE });
 
-    for (const auto& [key, sum] : totalSums) 
-    {
-        std::lock_guard<std::mutex> lock(outputMutex);
+    for (const auto& [key, sum] : totalSums) {
         output.addRow({to_string(key), sum});
     }
 

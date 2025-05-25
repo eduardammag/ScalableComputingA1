@@ -1,3 +1,4 @@
 *.o
 *.exe
 makefile
+__pycache__

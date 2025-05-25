@@ -10,22 +10,25 @@ using namespace std;
 class Extrator { 
 public:
     // Função pública para carregar um arquivo, detectando o tipo automaticamente
-    DataFrame carregar(const string& caminhoArquivo);
+    DataFrame carregar(const string&);
 
 private:
     // Função auxiliar privada para obter a extensão de um arquivo (ex: csv, txt, sqlite)
-    string obterExtensao(const string& nomeArquivo);
+    string obterExtensao(const string&);
 
-    vector<string> dividirLinha(const string& linha, char separador);
+    vector<string> dividirLinha(const string&, char);
 
     // Função privada para carregar arquivos CSV ou TXT, recebendo o caminho e o separador (vírgula ou tab)
-    DataFrame carregarCSVouTXT(const string& caminho, char separador);
+    DataFrame carregarCSVouTXT(const string&, char);
 
     // Função privada para carregar dados a partir de um banco SQLite
-    DataFrame carregarSQLite(const string& caminho);
+    DataFrame carregarSQLite(const string&);
+
+    // Função privada para carregar dados a partir de um json
+    DataFrame carregarJSON(const string&);
 
     // Função privada para inferir os tipos de dados das colunas a partir de amostras das linhas (ex: int, double, string)
-    vector<ColumnType> inferirTipos(const vector<vector<string>>& amostras);
+    vector<ColumnType> inferirTipos(const vector<vector<string>>&);
 };
 
 

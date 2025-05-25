@@ -9,6 +9,7 @@
 #include <thread>
 #include <atomic>
 #include <vector>
+#include <ostream>
 
 #include <functional> // Para std::ref
 
@@ -130,7 +131,7 @@ void consumidorExtrator(int id, bool merge) {
 // CONSUMIDOR TRATADOR: consome da fila extraída e joga para o tratador
 void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  int numThreads) 
 {
-    int count = 0;
+    // int count = 0;
 
     while (true) {
         // df dummy só para inicializar o objeto
@@ -175,7 +176,8 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
                 LoaderItem l_item{
                     
                     std::move(grouping),
-                    "saida_tratada_hospital" + to_string(count++) + ".csv", id
+                    // "saida_tratada_hospital" + to_string(count++) + ".csv", id
+                    "saida_tratada_hospital.csv", id
             };
             // coloca na fila do loader o df tratado
             {
@@ -183,18 +185,19 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
                 tratadorLoaderFila.push(move(l_item));
             }
             tratLoadCondVar.notify_one();
-        } 
+        }
         // se é oms então agrupa e faz média
         else if (origem.find("oms") != string::npos) 
         {
             handler.dataCleaner(dfExtraido);
             handler.validateDataFrame(dfExtraido, numThreads);
-            grouping = handler.groupedDf(dfExtraido, "CEP", meanCol, numThreads, false);
-            handler.meanAlert(grouping,"Total_" + meanCol, numThreads );
+            grouping = handler.groupedDf(dfExtraido, "cep", meanCol, numThreads, false);
+            handler.meanAlert(grouping, "Total_" + meanCol, numThreads);
             LoaderItem l_item{
 
                 std::move(grouping),
-                "saida_tratada_oms" + to_string(count++) + to_string(numThreads) + ".csv",
+                // "saida_tratada_oms" + to_string(count++) + to_string(numThreads) + ".csv",
+                "saida_tratada_oms.csv",
                 id
             };
 
@@ -204,7 +207,28 @@ void consumidorTrat(int id, string meanCol, string groupedCol, string aggCol,  i
                 tratadorLoaderFila.push(move(l_item));
             }
             tratLoadCondVar.notify_one();
-        } 
+        }
+        else if (origem.find("secretaria") != string::npos) 
+        {
+            handler.dataCleaner(dfExtraido);
+            handler.validateDataFrame(dfExtraido, numThreads);
+            grouping = handler.groupedDf(dfExtraido, "cep", "vacinado", numThreads, true);
+
+            LoaderItem l_item{
+                std::move(grouping),
+                // "saida_tratada_secretaria" + to_string(count++) + ".csv",
+                "saida_tratada_secretaria.csv",
+                id
+            };
+
+            {
+                lock_guard<mutex> lock(tratLoadMutex);
+                tratadorLoaderFila.push(move(l_item));
+            }
+            tratLoadCondVar.notify_one();
+        }
+
+
         else 
         {
             cerr << "[Tratador " << id << "] Origem desconhecida: " << origem << endl;
@@ -334,11 +358,12 @@ void consumidorLoader(int id, bool merge) {
 }
 
 // Função que orquestra o pipeline
-void executarPipeline(int numConsumidores) {
+void executarPipeline(int numConsumidores, const string& arquivoOmsJson, const string& arquivoSecretariaJson, const string& arquivoHospitalJson) 
+{
     // Reinicia estados globais (caso a função seja chamada várias vezes)
     encerrado = false;
     extTratencerrado = false;
-    tratadorEncerrado = false;  
+    tratadorEncerrado = false;
 
     // entre fila e extrator
     {
@@ -361,19 +386,7 @@ void executarPipeline(int numConsumidores) {
     }  
 
     // arquivos
-    vector<string> arquivos = {
-        "databases_mock/oms_mock.txt",
-        "databases_mock/hospital_mock_1.csv",
-        "databases_mock/hospital_mock_2.csv",
-        "databases_mock/hospital_mock_3.csv",
-        "databases_mock/hospital_mock_4.csv",
-        "databases_mock/hospital_mock_5.csv",
-        "databases_mock/hospital_mock_6.csv",
-        "databases_mock/hospital_mock_7.csv",
-        "databases_mock/hospital_mock_8.csv",
-        "databases_mock/hospital_mock_9.csv",
-        "databases_mock/hospital_mock_10.csv"
-    };
+    vector<string> arquivos = {arquivoOmsJson, arquivoHospitalJson, arquivoSecretariaJson};
 
     // Variáveis para medição de tempo
     chrono::time_point<chrono::high_resolution_clock> start, end;
@@ -416,7 +429,7 @@ void executarPipeline(int numConsumidores) {
     vector<thread> consumidoresTratador;
     for (int i = 0; i < numConsumidores; ++i) 
     {
-        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "Nº óbitos", "ID_Hospital", "Internado", numConsumidores);
+        consumidoresTratador.emplace_back(consumidorTrat, i + 1, "num_obitos", "id_hospital", "internado", numConsumidores);
     }
 
     // Aguarda tratadores
@@ -472,31 +485,20 @@ void executarPipeline(int numConsumidores) {
     }  
     
     // arquivos variados para o merge
-    vector<string> arquivosMerge = {
-        "databases_mock/hospital_mock_1.csv",
-        "databases_mock/hospital_mock_2.csv",
-        "databases_mock/hospital_mock_3.csv",
-        "databases_mock/hospital_mock_4.csv",
-        "databases_mock/hospital_mock_5.csv",
-        "databases_mock/hospital_mock_6.csv",
-        "databases_mock/hospital_mock_7.csv",
-        "databases_mock/hospital_mock_8.csv",
-        "databases_mock/hospital_mock_9.csv",
-        "databases_mock/hospital_mock_10.csv"
-    };
+    vector<string> arquivoMerge = {arquivoHospitalJson};
     Extrator extra;
     Handler handler;
 
     // arquivos fixos para o merge
-    DataFrame oms = extra.carregar("databases_mock/oms_mock.txt");
-    DataFrame oms_agrup = handler.groupedDf(oms, "CEP" , "Nº óbitos", 4, false);
+    DataFrame oms = extra.carregar(arquivoOmsJson);
+    DataFrame oms_agrup = handler.groupedDf(oms, "cep" , "num_obitos", 4, false);
     
-    DataFrame ss = extra.carregar("databases_mock/secretary_data.db");
-    DataFrame ss_agrup = handler.groupedDf(ss, "CEP" , "Vacinado", 4, true);
+    DataFrame ss = extra.carregar(arquivoSecretariaJson);
+    DataFrame ss_agrup = handler.groupedDf(ss, "cep" , "vacinado", 4, true);
 
     auto startmerge = chrono::high_resolution_clock::now();
     // Cria produtor e inializa-o
-    thread prodMerge(produtor, arquivosMerge, true);
+    thread prodMerge(produtor, arquivoMerge, true);
     
     // Cria consumidores do extrator
     vector<thread> consumidoresExtratorMerge;
@@ -522,7 +524,7 @@ void executarPipeline(int numConsumidores) {
     for (int i = 0; i < numConsumidores; ++i) 
     {
         consumidoresTratadorMerge.emplace_back(consumidorMerge, i + 1, ref(oms_agrup), 
-        ref(ss_agrup), "CEP","Internado", "Nº óbitos", "Total_Vacinado", numConsumidores);
+        ref(ss_agrup), "cep","internado", "num_obitos", "Total_Vacinado", numConsumidores);
     }
     
     // Aguarda tratadores

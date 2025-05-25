@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "json.hpp"
+#include "pipeline/pipeline.hpp"
 
 using json = nlohmann::json;
 
@@ -56,19 +57,15 @@ void processarSecretaria(const std::string& caminho) {
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
-        std::cerr << "Uso: " << argv[0]
-                  << " <arquivo_oms.json> <arquivo_hospital.json> <arquivo_secretaria.json>"
-                  << std::endl;
+        std::cerr << "Uso: programa.exe <oms.json> <hospital.json> <secretaria.json>\n";
         return 1;
     }
 
-    std::string caminho_oms = argv[1];
-    std::string caminho_hospital = argv[2];
-    std::string caminho_secretaria = argv[3];
+    std::string arquivoOms = argv[1];
+    std::string arquivoHospital = argv[2];
+    std::string arquivoSecretaria = argv[3];
 
-    processarOMS(caminho_oms);
-    processarHospital(caminho_hospital);
-    processarSecretaria(caminho_secretaria);
+    executarPipeline(4, arquivoOms, arquivoHospital, arquivoSecretaria);
 
     return 0;
 }

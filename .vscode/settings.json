@@ -63,6 +63,12 @@
         "semaphore": "cpp",
         "span": "cpp",
         "stop_token": "cpp",
-        "text_encoding": "cpp"
+        "text_encoding": "cpp",
+        "any": "cpp",
+        "cstring": "cpp",
+        "forward_list": "cpp",
+        "unordered_set": "cpp",
+        "ranges": "cpp",
+        "valarray": "cpp"
     }
 }

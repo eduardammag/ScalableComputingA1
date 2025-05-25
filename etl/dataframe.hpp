@@ -1,6 +1,7 @@
 #ifndef DATAFRAME_HPP              
 #define DATAFRAME_HPP              
-#include <iostream>                
+#include <iostream>
+#include <sstream>              
 #include <vector>                  
 #include <string>
 #include <variant>        
@@ -44,6 +45,47 @@ inline string toString(const Cell& cell)
         // Para outros tipos não esperados
         else return "unknown";
     }, cell);
+}
+
+inline string toJSON(const vector<vector<Cell>>& data, const vector<string>& columnNames)
+{
+    ostringstream oss;
+    oss << "[";
+
+    for (size_t i = 0; i < data.size(); ++i) {
+        const auto& row = data[i];
+        oss << "{";
+
+        for (size_t j = 0; j < columnNames.size(); ++j) {
+            oss << '"' << columnNames[j] << "\":";
+
+            visit([&oss](auto&& val) {
+                using T = decay_t<decltype(val)>;
+                if constexpr (is_same_v<T, string>) {
+                    // Escapa aspas e barras no valor da string
+                    string escaped;
+                    for (char c : val) {
+                        if (c == '"') escaped += "\\\"";
+                        else if (c == '\\') escaped += "\\\\";
+                        else escaped += c;
+                    }
+                    oss << '"' << escaped << '"';
+                } else {
+                    oss << val;
+                }
+            }, row[j]);
+
+            if (j != columnNames.size() - 1)
+                oss << ",";
+        }
+
+        oss << "}";
+        if (i != data.size() - 1)
+            oss << ",";
+    }
+
+    oss << "]";
+    return oss.str();
 }
 
 class DataFrame {
