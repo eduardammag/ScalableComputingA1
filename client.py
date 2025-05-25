@@ -35,14 +35,14 @@ def gerar_dados_hospital(rows=500):
             linha_hospital=etl_pb2.LinhaHospital(
                 id_hospital=random.randint(1, 5),
                 data=(base_data - timedelta(days=random.randint(0, 6))).strftime("%d-%m-%Y"),
-                internado=random.choice([True, False]),
+                internado=random.choice([1, 0]),
                 idade=random.randint(0, 100),
                 sexo=random.randint(0, 1),
                 cep=random.choice(cep_regioes),
-                sintoma1=random.choice([True, False]),
-                sintoma2=random.choice([True, False]),
-                sintoma3=random.choice([True, False]),
-                sintoma4=random.choice([True, False]),
+                sintoma1=random.choice([1, 0]),
+                sintoma2=random.choice([1, 0]),
+                sintoma3=random.choice([1, 0]),
+                sintoma4=random.choice([1, 0]),
             )
         )
         linhas.append(linha)
@@ -54,8 +54,8 @@ def gerar_dados_secretaria(rows=1000):
     for _ in range(rows):
         linha = etl_pb2.Linha(
             linha_secretaria=etl_pb2.LinhaSecretaria(
-                diagnostico=random.choice([True, False]),
-                vacinado=random.choice([True, False]),
+                diagnostico=random.choice([1, 0]),
+                vacinado=random.choice([1, 0]),
                 cep=random.choice(cep_regioes),
                 escolaridade=random.randint(0, 5),
                 populacao=random.randint(1000, 1000000),

@@ -44,15 +44,15 @@ class PipelineServicer(etl_pb2_grpc.ETLServiceServicer):
                     "idade": linha.linha_hospital.idade,
                     "sexo": linha.linha_hospital.sexo,
                     "cep": linha.linha_hospital.cep,
-                    "sintoma1": linha.linha_hospital.sintoma1,
-                    "sintoma2": linha.linha_hospital.sintoma2,
-                    "sintoma3": linha.linha_hospital.sintoma3,
-                    "sintoma4": linha.linha_hospital.sintoma4
+                    "sintoma1": int(linha.linha_hospital.sintoma1),
+                    "sintoma2": int(linha.linha_hospital.sintoma2),
+                    "sintoma3": int(linha.linha_hospital.sintoma3),
+                    "sintoma4": int(linha.linha_hospital.sintoma4)
                 })
             elif linha.HasField("linha_secretaria"):
                 linhas_json.append({
-                    "diagnostico": linha.linha_secretaria.diagnostico,
-                    "vacinado": linha.linha_secretaria.vacinado,
+                    "diagnostico": int(linha.linha_secretaria.diagnostico),
+                    "vacinado": int(linha.linha_secretaria.diagnostico),
                     "cep": linha.linha_secretaria.cep,
                     "escolaridade": linha.linha_secretaria.escolaridade,
                     "populacao": linha.linha_secretaria.populacao,

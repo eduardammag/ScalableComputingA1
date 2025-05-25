@@ -26,19 +26,19 @@ message LinhaOMS {
 message LinhaHospital {
   int32 id_hospital = 1;
   string data = 2;
-  bool internado = 3;
+  int32 internado = 3;
   int32 idade = 4;
   int32 sexo = 5;
   int32 cep = 6;
-  bool sintoma1 = 7;
-  bool sintoma2 = 8;
-  bool sintoma3 = 9;
-  bool sintoma4 = 10;
+  int32 sintoma1 = 7;
+  int32 sintoma2 = 8;
+  int32 sintoma3 = 9;
+  int32 sintoma4 = 10;
 }
 
 message LinhaSecretaria {
-  bool diagnostico = 1;
-  bool vacinado = 2;
+  int32 diagnostico = 1;
+  int32 vacinado = 2;
   int32 cep = 3;
   int32 escolaridade = 4;
   int32 populacao = 5;
