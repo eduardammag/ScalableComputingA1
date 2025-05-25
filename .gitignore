@@ -2,3 +2,4 @@
 *.exe
 makefile
 __pycache__
+*.json

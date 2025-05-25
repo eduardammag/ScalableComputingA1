@@ -71,18 +71,18 @@ def main():
 
     try:
         # Enviar OMS
-        linhas_oms = gerar_dados_oms(1000)
+        linhas_oms = gerar_dados_oms(10000)
         response = stub.EnviarDados(etl_pb2.DadosRequest(origem="oms", nome_arquivo="oms_virtual.txt", dados=linhas_oms))
         print(f"Resposta OMS: {response.mensagem}")
 
         # Enviar hospitais (vários arquivos simulados)
         # for i in range(1, 4):
-        linhas_hospital = gerar_dados_hospital(random.randint(500, 800))
+        linhas_hospital = gerar_dados_hospital(random.randint(5000, 8000))
         response = stub.EnviarDados(etl_pb2.DadosRequest(origem="hospital", nome_arquivo=f"hospital_virtual.csv", dados=linhas_hospital))
         print(f"Resposta Hospital: {response.mensagem}")
 
         # Enviar secretaria
-        linhas_secretaria = gerar_dados_secretaria(2000)
+        linhas_secretaria = gerar_dados_secretaria(20000)
         response = stub.EnviarDados(etl_pb2.DadosRequest(origem="secretaria", nome_arquivo="secretaria_virtual.db", dados=linhas_secretaria))
         print(f"Resposta Secretaria: {response.mensagem}")
 

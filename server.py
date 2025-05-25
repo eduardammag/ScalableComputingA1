@@ -4,9 +4,13 @@ import threading
 import subprocess
 import json
 import optparse
+import time
 
 import etl_pb2
 import etl_pb2_grpc
+
+# variável global para armazenar tempo de chegada da mensagem
+inicio_pipeline = None
 
 # Dicionário para armazenar arquivos temporários por tipo de origem
 arquivos_recebidos = {}
@@ -66,9 +70,15 @@ class PipelineServicer(etl_pb2_grpc.ETLServiceServicer):
 
         mensagem = f"Recebido {len(linhas_json)} registros do tipo {origem}."
 
+        global inicio_pipeline
+        
         with lock_arquivos:
             arquivos_recebidos[origem] = caminho_temp
             print(f"{origem} recebido e salvo em {caminho_temp}")
+            
+            # Inicia o timer no primeiro arquivo recebido
+            if inicio_pipeline is None:
+                inicio_pipeline = time.time()
 
             if TIPOS_ESPERADOS.issubset(arquivos_recebidos.keys()):
                 # Temos os 3 arquivos necessários, podemos executar o pipeline
@@ -77,12 +87,15 @@ class PipelineServicer(etl_pb2_grpc.ETLServiceServicer):
 
                 try:
                     subprocess.run(["./programa.exe"] + lista_arquivos, check=True)
-                    mensagem += " Pipeline executada com sucesso."
+                    duracao = time.time() - inicio_pipeline
+                    print(f"Pipeline executada com sucesso em {duracao:.2f} segundos.")
+                    mensagem += f" Pipeline executada com sucesso em {duracao:.2f} segundos."
                 except subprocess.CalledProcessError as e:
                     mensagem += f" Erro ao executar pipeline: {e}"
                 
                 # Limpa para próxima rodada
                 arquivos_recebidos.clear()
+                inicio_pipeline = None
 
         return etl_pb2.DadosResponse(mensagem=mensagem)
 
