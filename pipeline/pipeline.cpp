@@ -552,14 +552,14 @@ void executarPipeline(int numConsumidores, const string& arquivoOmsJson, const s
     // Tempo total
     tempoTotal = end - start;
     
-    // ---- Exibição dos tempos ----
-    cout << "\n=== Análise de Tempo por Estágio ===" << endl;
-    cout << "1. Extração:    " << tempoExtracao.count() << " segundos" << endl;
-    cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
-    cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
-    cout << "4. Merge:      " << tempomerge.count() << " segundos" << endl;
-    cout << "---------------------------------" << endl;
+    // // ---- Exibição dos tempos ----
+    // cout << "\n=== Análise de Tempo por Estágio ===" << endl;
+    // cout << "1. Extração:    " << tempoExtracao.count() << " segundos" << endl;
+    // cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
+    // cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
+    // cout << "4. Merge:      " << tempomerge.count() << " segundos" << endl;
+    // cout << "---------------------------------" << endl;
 
 
-    cout << "Tempo Total:   " << tempoTotal.count() << " segundos\n" << endl;
+    cout << "Tempo Total da pipeline:   " << tempoTotal.count() << " segundos\n" << endl;
 }
