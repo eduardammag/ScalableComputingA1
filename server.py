@@ -79,14 +79,23 @@ class PipelineServicer(etl_pb2_grpc.ETLServiceServicer):
                     with open(caminho_temp, "w") as f:
                         json.dump(dados_agrupados[tipo], f, indent=2)
                     arquivos_temp[tipo] = caminho_temp
-                    print(arquivos_temp)
                     arquivos_recebidos[tipo] = caminho_temp  # para limpeza futura
 
-                print("Todos os arquivos recebidos. Executando pipeline:", list(arquivos_temp.values()))
+                # Garante a ordem hospital, oms, secretaria
+                lista_arquivos = [
+                    arquivos_temp["oms"],
+                    arquivos_temp["secretaria"],
+                    arquivos_temp["hospital"]
+                ]
+                print(lista_arquivos)
+
+                print(f"Todos os arquivos recebidos. Executando pipeline: {lista_arquivos}")
+                subprocess.run(["./programa.exe"] + lista_arquivos, check=True)
+
                 try:
                     subprocess.run(["./programa.exe"] + list(arquivos_temp.values()), check=True)
                     duracao = time.time() - inicio_pipeline
-                    print(f"Pipeline executada com sucesso em {duracao:.2f} segundos (tempo de latência dos clientes).")
+                    print(f"Tempo de latência dos clientes: {duracao:.2f} segundos.")
                     mensagem += f" Pipeline executada com sucesso em {duracao:.2f} segundos."
                 except subprocess.CalledProcessError as e:
                     mensagem += f" Erro ao executar pipeline: {e}"

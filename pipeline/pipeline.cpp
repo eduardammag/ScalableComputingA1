@@ -491,6 +491,7 @@ void executarPipeline(int numConsumidores, const string& arquivoOmsJson, const s
 
     // arquivos fixos para o merge
     DataFrame oms = extra.carregar(arquivoOmsJson);
+    // oms.display();
     DataFrame oms_agrup = handler.groupedDf(oms, "cep" , "num_obitos", 4, false);
     
     DataFrame ss = extra.carregar(arquivoSecretariaJson);
@@ -550,15 +551,15 @@ void executarPipeline(int numConsumidores, const string& arquivoOmsJson, const s
     
     
     // Tempo total
-    tempoTotal = end - start;
+    // tempoTotal = end - start;
     
-    // // ---- Exibição dos tempos ----
-    // cout << "\n=== Análise de Tempo por Estágio ===" << endl;
-    // cout << "1. Extração:    " << tempoExtracao.count() << " segundos" << endl;
-    // cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
-    // cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
-    // cout << "4. Merge:      " << tempomerge.count() << " segundos" << endl;
-    // cout << "---------------------------------" << endl;
+    // ---- Exibição dos tempos ----
+    cout << "\n=== Análise de Tempo por Estágio ===" << endl;
+    cout << "1. Extração:    " << tempoExtracao.count() << " segundos" << endl;
+    cout << "2. Tratamento: " << tempoTratamento.count() << " segundos" << endl;
+    cout << "3. Loader:      " << tempoLoader.count() << " segundos" << endl;
+    cout << "4. Merge:      " << tempomerge.count() << " segundos" << endl;
+    cout << "---------------------------------" << endl;
 
 
     cout << "Tempo Total da pipeline:   " << tempoTotal.count() << " segundos\n" << endl;
