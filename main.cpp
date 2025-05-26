@@ -61,9 +61,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::string arquivoHospital = argv[1];
+    std::string arquivoHospital = argv[3];
     std::string arquivoSecretaria = argv[2];
-    std::string arquivoOms = argv[3];
+    std::string arquivoOms = argv[1];
 
     executarPipeline(4, arquivoOms, arquivoSecretaria, arquivoHospital);
 
