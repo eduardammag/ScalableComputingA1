@@ -5,6 +5,7 @@ import subprocess
 import json
 import optparse
 import time
+import os
 
 import etl_pb2
 import etl_pb2_grpc
@@ -73,7 +74,17 @@ class PipelineServicer(etl_pb2_grpc.ETLServiceServicer):
         global inicio_pipeline
         
         with lock_arquivos:
+    # Remove o arquivo antigo desse tipo, se existir
+            if origem in arquivos_recebidos:
+                try:
+                    antigo = arquivos_recebidos[origem]
+                    if antigo != caminho_temp:
+                        os.remove(antigo)
+                except FileNotFoundError:
+                    pass
+
             arquivos_recebidos[origem] = caminho_temp
+
             print(f"{origem} recebido e salvo em {caminho_temp}")
             
             # Inicia o timer no primeiro arquivo recebido
