@@ -118,8 +118,80 @@ O servidor é inicializado com uma ThreadPoolExecutor, permitindo o atendimento 
 
 \end{itemize}
 
+\section{Execução do sistema gRPC}
+
+A seguir, detalhamos os passos necessários para compilar, configurar e executar o sistema de comunicação gRPC desenvolvido no projeto, que permite o envio e processamento distribuído de dados simulados.
+
+\subsection{Compilação dos arquivos \texttt{.proto}}
+
+O primeiro passo consiste na geração dos stubs a partir do arquivo \texttt{etl.proto}, que define as mensagens e serviços utilizados na comunicação. A compilação deve ser feita para Python (cliente e servidor) utilizando o \texttt{protoc} com os plugins apropriados.
+
+\begin{verbatim}
+# Compilação para Python
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. etl.proto
+
+\end{verbatim}
+
+\subsection{Execução do servidor}
+
+Após compilar os arquivos, o servidor gRPC pode ser executado diretamente, pois escuta conexões na porta 50051 (para rodar localmente) e processa as requisições recebidas.
+
+\begin{verbatim}
+python server.py
+\end{verbatim}
+
+O servidor aguarda conexões dos clientes e salva temporariamente os dados recebidos em arquivos locais (\texttt{temp\_oms.json}, \texttt{temp\_hospital.json}, \texttt{temp\_secretaria.json}). Quando os três tipos de arquivos forem recebidos, ele executa o programa principal da pipeline, utilizando esses arquivos como entrada.
+
+\subsection{Execução do cliente}
+
+O cliente simula o envio de dados aleatórios para os três tipos de origem (OMS, hospital, secretaria), conectando-se ao servidor gRPC para transmitir os dados. Basta executar:
+
+\begin{verbatim}
+python client.py
+\end{verbatim}
+
+Durante a execução, o cliente mostra a resposta do servidor para cada envio, permitindo o monitoramento do processo. Os dados enviados são gerados dinamicamente com diferentes tamanhos e conteúdos, simulando arquivos de entrada reais.
+
+
+\subsection{Observações}
+
+Caso o programa principal (\texttt{programa.exe}) não esteja compilado na raiz do projeto rode \texttt{make} no terminal para gerar os executáveis da pipeline.
+
 
 \section{Resultados}
+
+Nesta seção temos os tempos de latência com diferentes configurações de clientes. Um ponto de ressalva é que nem todo cliente consegue rodar e finalizar a pipeline, já que é preciso dados das 3 naturezas, hospital, secretaria e OMS, e a pipeline só é finalizada quando tem pelo menos um tipo de cada dado.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=9cm]{server5.jpg} 
+    % \qquad
+    \includegraphics[width=9cm]{client5.jpg} 
+    \caption{Server e 5 clientes}
+    \label{fig:example}%
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=9cm]{server7.jpg} 
+    % \qquad
+    \includegraphics[width=9cm]{cliente7.jpg} 
+    \caption{Server e 7 clientes}
+    \label{fig:example}%
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=9cm]{server10.jpg} 
+    % \qquad
+    \includegraphics[width=9cm]{client10.jpg} 
+    \caption{Server e 10 clientes}
+    \label{fig:example}%
+\end{figure}
+
+
+
+
 
 
 \end{document}
